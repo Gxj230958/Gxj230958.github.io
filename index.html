@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Xingjian Guo — MLSys &amp; HPC</title>
+<meta name="description" content="Xingjian Guo — independent research and open-source contributions in machine learning systems and high-performance computing on Ascend NPUs.">
+<meta property="og:title" content="Xingjian Guo">
+<meta property="og:description" content="Independent research and open-source contributions in MLSys &amp; HPC — eight Ascend 910B NPU research projects.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://gxj230958.github.io">
+<meta property="og:image" content="https://gxj230958.github.io/assets/covers/chenfeng_xu.svg">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Xingjian Guo</h1>
+    <p class="tag">Machine learning systems &amp; high-performance computing</p>
+    <nav>
+      <a class="chip" href="https://github.com/Gxj230958">GitHub</a>
+      <a class="chip" href="#research">Research projects</a>
+    </nav>
+  </header>
+
+  <section id="research">
+    <h2 class="sec">Independent Research &amp; Open-Source Contributions</h2>
+    <p class="intro">Eight independent research projects on <b>Huawei Ascend 910B NPUs</b>, spanning
+    kernel engineering, LLM inference and serving, diffusion-model efficiency, distributed training,
+    and memory planning. Every project ships a full implementation, measured results, and a technical
+    report; several are <b>upstream pull requests</b> to Flash-KMeans, FastVideo, ParoQuant, and DeepSpeed.</p>
+    <div class="grid">
+    <article class="card" style="--acc:#2563eb">
+      <a class="cover" href="https://github.com/Gxj230958/ascend-flash-kmeans" aria-label="Streaming Flash-KMeans: Exact Batched Lloyd Clustering on Ascend NPUs">
+        <img src="assets/covers/chenfeng_xu.svg" alt="Streaming Flash-KMeans: Exact Batched Lloyd Clustering on Ascend NPUs — system overview figure" loading="lazy">
+      </a>
+      <div class="body">
+        <div class="idx">PROJECT 01</div>
+        <h3><a href="https://github.com/Gxj230958/ascend-flash-kmeans">Streaming Flash-KMeans: Exact Batched Lloyd Clustering on Ascend NPUs</a></h3>
+        <p class="tagline">An Ascend 910B execution path for Flash-KMeans that runs complete Lloyd iterations 2.72–2.80× faster than tuned PyTorch at the video-example scale while using 56.8% less memory.</p>
+      <ul>
+        <li>Ascend backend for Flash-KMeans: streaming Cube distance assignment plus sorted fixed-chunk FP32 center updates, preserving upstream Lloyd semantics (upstream draft PR #26).</li>
+        <li>Five complete Lloyd iterations at 32×75,600×128 with 1,000 centers on one Ascend 910B2C, compared against an independently tuned blocked PyTorch FP16 baseline.</li>
+        <li>Padded Cube center tiles, a persistent token-streaming grid, and native FP32 ID sorting give 2.72–2.80× speedup; real Wan2.1 features reach 1.81× with 75% lower peak memory.</li>
+      </ul>
+        <div class="links"><a class="chip" href="https://github.com/Gxj230958/ascend-flash-kmeans">Code</a><a class="chip" href="https://github.com/Gxj230958/ascend-flash-kmeans/blob/main/research/REPORT.md">Report</a><a class="chip" href="https://github.com/svg-project/flash-kmeans/pull/26">PR</a></div>
+      </div>
+    </article>
+    <article class="card" style="--acc:#7c3aed">
+      <a class="cover" href="https://github.com/Gxj230958/cost-aware-dit-precision" aria-label="Cost-Aware Mixed-Precision Scheduling for Diffusion Transformers">
+        <img src="assets/covers/tony_geng.svg" alt="Cost-Aware Mixed-Precision Scheduling for Diffusion Transformers — system overview figure" loading="lazy">
+      </a>
+      <div class="body">
+        <div class="idx">PROJECT 02</div>
+        <h3><a href="https://github.com/Gxj230958/cost-aware-dit-precision">Cost-Aware Mixed-Precision Scheduling for Diffusion Transformers</a></h3>
+        <p class="tagline">Measured-cost per-timestep-segment, per-module INT8/BF16 scheduling for DiT-XL/2 on Ascend 910B, with paired error-and-cost calibration and full-generation FID evaluation.</p>
+      <ul>
+        <li>144 linear modules x 5 sampling-step segments form 720 precision decisions, fixed before weight preparation from measured W8A8-vs-BF16 error and measured complete layer cost; no online profiling.</li>
+        <li>At batch 8 the cost-aware table keeps BF16 for all 720 decisions, avoiding the 11.2% latency increase of uniform W8A8 (2.81677 vs 2.53193 s/batch, 50 DDIM steps + VAE); W8A8 instead cuts peak memory 20.4%.</li>
+        <li>Cost decomposition across ND/FRACTAL_NZ layouts locates the INT8 payoff boundary: batch-64 NZ fc2 reaches 0.880x BF16 layer time, yet uniform W8A8 stays 2.39% slower over full generation at batch 64.</li>
+        <li>15,000 matched evaluation images; official ADM FID on 5000 images per distinct strategy: BF16 17.8916, uniform W8A8 16.4195, error-only 17.8618 (single matched sets, finite-sample variation noted).</li>
+      </ul>
+        <div class="links"><a class="chip" href="https://github.com/Gxj230958/cost-aware-dit-precision">Code</a><a class="chip" href="https://github.com/Gxj230958/cost-aware-dit-precision/blob/main/RESEARCH.md">Report</a></div>
+      </div>
+    </article>
+    <article class="card" style="--acc:#0f766e">
+      <a class="cover" href="https://github.com/Gxj230958/cache-aware-llm-scheduling" aria-label="Cache-Aware Fair Scheduling for LLM Serving on Ascend NPU">
+        <img src="assets/covers/danyang_zhuo.svg" alt="Cache-Aware Fair Scheduling for LLM Serving on Ascend NPU — system overview figure" loading="lazy">
+      </a>
+      <div class="body">
+        <div class="idx">PROJECT 03</div>
+        <h3><a href="https://github.com/Gxj230958/cache-aware-llm-scheduling">Cache-Aware Fair Scheduling for LLM Serving on Ascend NPU</a></h3>
+        <p class="tagline">Executed-work service accounting for fair multi-user LLM inference under prefix caching, chunked prefill and dynamic batching, built on vLLM-Ascend.</p>
+      <ul>
+        <li>Extends vLLM-Ascend with weighted virtual-service scheduling, executed-chunk accounting, per-batch reservations and preemption recomputation, retaining the VTC (OSDI&#x27;24) framework.</li>
+        <li>Charges actual query/context work: cached prefixes skip projection/MLP but stay attention keys; executed prefill chunks, decode contexts, shared batch overhead and recomputation after preemption are all metered.</li>
+        <li>Qwen3-4B on one Ascend 910B: 48 policy runs, 1,536 requests, 46,080 tokens; 16.16% smaller service gap on shared prefixes and 22.73% on bursts vs profiled VTC, with 4.32%/0.79% median throughput costs.</li>
+        <li>Mixed-length workload shows a 122.60% larger gap and 7.65% lower throughput: joint accounting is a workload-dependent tradeoff, not a universal fairness win.</li>
+      </ul>
+        <div class="links"><a class="chip" href="https://github.com/Gxj230958/cache-aware-llm-scheduling">Code</a><a class="chip" href="https://github.com/Gxj230958/cache-aware-llm-scheduling/blob/main/REPORT.md">Report</a></div>
+      </div>
+    </article>
+    <article class="card" style="--acc:#b45309">
+      <a class="cover" href="https://github.com/Gxj230958/paroquant-ascend-int4" aria-label="ParoQuant on Ascend: Fused Rotation and Packed INT4 Execution">
+        <img src="assets/covers/zhijian_liu.svg" alt="ParoQuant on Ascend: Fused Rotation and Packed INT4 Execution — system overview figure" loading="lazy">
+      </a>
+      <div class="body">
+        <div class="idx">PROJECT 04</div>
+        <h3><a href="https://github.com/Gxj230958/paroquant-ascend-int4">ParoQuant on Ascend: Fused Rotation and Packed INT4 Execution</a></h3>
+        <p class="tagline">Fused eight-stage rotation kernels and native packed-INT4 execution for ParoQuant Qwen3-4B/8B on Ascend 910B, cutting peak memory 38.9-42.1% with validated quality.</p>
+      <ul>
+        <li>Runs the published Qwen3-4B/8B-PARO checkpoints on Ascend 910B unchanged: one Triton Ascend kernel fuses channel scaling and all eight group-128 pairwise rotation stages.</li>
+        <li>One-time AWQ-to-native INT4 repacking feeds the W4A16 matrix operator; decode uses one row per program, prefill eight, with a tiled Triton unpack-and-GEMM path as ablation.</li>
+        <li>Peak allocated memory drops 38.9-42.1% vs cached FP16 execution of the same quantized weights; decode is 45.6-83.6x the naive expand path and 5.0-18.1% below the dense fused baseline.</li>
+        <li>Full-set quality: WikiText-2 perplexity 13.8587 (4B) / 9.8820 (8B, 299,077 targets); GSM8K 89.54% / 87.11% (all 1319); all 252 linears per model validated, max rel. L2 0.00266.</li>
+      </ul>
+        <div class="links"><a class="chip" href="https://github.com/Gxj230958/paroquant-ascend-int4">Code</a><a class="chip" href="https://github.com/Gxj230958/paroquant-ascend-int4/blob/main/RESEARCH.md">Report</a><a class="chip" href="https://github.com/z-lab/paroquant/pull/57">PR</a></div>
+      </div>
+    </article>
+    <article class="card" style="--acc:#be123c">
+      <a class="cover" href="https://github.com/Gxj230958/fastvideo-memory-planner" aria-label="Budget-Driven Activation Memory Planning for FastVideo Training">
+        <img src="assets/covers/hao_zhang.svg" alt="Budget-Driven Activation Memory Planning for FastVideo Training — system overview figure" loading="lazy">
+      </a>
+      <div class="body">
+        <div class="idx">PROJECT 05</div>
+        <h3><a href="https://github.com/Gxj230958/fastvideo-memory-planner">Budget-Driven Activation Memory Planning for FastVideo Training</a></h3>
+        <p class="tagline">Event-liveness model plus MILP planner that selects per-block activation save, recompute, or CPU offload under a strict memory budget for video-diffusion training on Ascend 910B.</p>
+      <ul>
+        <li>MILP planner over an execution-event liveness model picks save/recompute/offload per block under a budget; Wan2.1-1.3B at 24 GiB: 25 saved + 5 recomputed blocks, 23.498 GiB measured peak allocated.</li>
+        <li>Complete training step 471.82 ms, 14.97% faster than full recomputation, validated in three independent held-out processes; plans reach 49-frame inputs and two-rank FSDP2 where full-save is infeasible at 17 frames.</li>
+        <li>Cross-role constraints cover DMD2 student/teacher/critic lifetimes, satisfying a 54 GiB budget in every run; upstream as draft PRs #2055 (planner, CI green) and #2053 (HCCL NPU stream fix).</li>
+      </ul>
+        <div class="links"><a class="chip" href="https://github.com/Gxj230958/fastvideo-memory-planner">Code</a><a class="chip" href="https://github.com/Gxj230958/fastvideo-memory-planner/blob/main/research/report.md">Report</a><a class="chip" href="https://github.com/hao-ai-lab/FastVideo/pull/2055">PR</a></div>
+      </div>
+    </article>
+    <article class="card" style="--acc:#15803d">
+      <a class="cover" href="https://github.com/Gxj230958/numa-optimizer-offload" aria-label="NUMA-Aware Optimizer Offload for LLM Training">
+        <img src="assets/covers/minjia_zhang.svg" alt="NUMA-Aware Optimizer Offload for LLM Training — system overview figure" loading="lazy">
+      </a>
+      <div class="body">
+        <div class="idx">PROJECT 06</div>
+        <h3><a href="https://github.com/Gxj230958/numa-optimizer-offload">NUMA-Aware Optimizer Offload for LLM Training</a></h3>
+        <p class="tagline">Bounded gradient-transfer, CPU AdamW and weight write-back pipeline for full-parameter Qwen3 training on Ascend 910B, with a DeepSpeed GIL patch.</p>
+      <ul>
+        <li>Pipelined CPU-NPU offload gives 1.430x/1.516x/1.590x complete-step speedups over tuned synchronous offload on Qwen3-0.6B/1.7B/4B (33 processes, 198 timed updates).</li>
+        <li>Joint calibration over 8/32/128 MiB buckets, depths 1/2/4, 4-32 threads and local/remote NUMA affinity selects 8 MiB + depth 4 + 8 local threads on complete-step time.</li>
+        <li>Offloading trains 4B at 2,048 tokens where the tested resident optimizer OOMs at 256; GIL release in DeepSpeed CPUAdam adds a median 1.151x paired training speedup.</li>
+      </ul>
+        <div class="links"><a class="chip" href="https://github.com/Gxj230958/numa-optimizer-offload">Code</a><a class="chip" href="https://github.com/Gxj230958/numa-optimizer-offload/blob/main/reports/technical_report.md">Report</a><a class="chip" href="https://github.com/deepspeedai/DeepSpeed/pull/9035">PR</a></div>
+      </div>
+    </article>
+    <article class="card" style="--acc:#4338ca">
+      <a class="cover" href="https://github.com/Gxj230958/hccl-bucket-prediction" aria-label="Execution-Graph Prediction and DDP Bucket Selection for HCCL Training">
+        <img src="assets/covers/minlan_yu.svg" alt="Execution-Graph Prediction and DDP Bucket Selection for HCCL Training — system overview figure" loading="lazy">
+      </a>
+      <div class="body">
+        <div class="idx">PROJECT 07</div>
+        <h3><a href="https://github.com/Gxj230958/hccl-bucket-prediction">Execution-Graph Prediction and DDP Bucket Selection for HCCL Training</a></h3>
+        <p class="tagline">Critical-path prediction from measured gradient-readiness dependency graphs and automatic DDP bucket sizing, validated on 2/4/8 Ascend 910B NPUs over HCCL.</p>
+      <ul>
+        <li>Dependency graphs from NPU-event gradient-readiness times predict held-out step time with 7.77%/5.74%/4.23% MAPE on 2/4/8 NPUs, vs 33.59%/19.97%/22.65% for additive models.</li>
+        <li>Evaluated 16 held-out DDP bucket configurations across 48 independent runs of Qwen3-0.6B; predicted and actual bucket layouts matched in all 1,296 rank-steps.</li>
+        <li>HCCL cost tables from 4 KiB–512 MiB microbenchmarks with a Cube-contended variant; selected bucket within 3.29% of measured best, no gain over the 25 MiB default.</li>
+      </ul>
+        <div class="links"><a class="chip" href="https://github.com/Gxj230958/hccl-bucket-prediction">Code</a><a class="chip" href="https://github.com/Gxj230958/hccl-bucket-prediction/blob/main/REPORT.md">Report</a></div>
+      </div>
+    </article>
+    <article class="card" style="--acc:#0369a1">
+      <a class="cover" href="https://github.com/Gxj230958/tree-attention-scheduling" aria-label="Tree-Shared Attention Scheduling for Ascend Cube">
+        <img src="assets/covers/yufei_ding.svg" alt="Tree-Shared Attention Scheduling for Ascend Cube — system overview figure" loading="lazy">
+      </a>
+      <div class="body">
+        <div class="idx">PROJECT 08</div>
+        <h3><a href="https://github.com/Gxj230958/tree-attention-scheduling">Tree-Shared Attention Scheduling for Ascend Cube</a></h3>
+        <p class="tagline">Subset-DP grouping with hardware-aware costs for tree-shared decode attention on one Ascend 910B NPU, integrated and validated end-to-end on pretrained Qwen3-4B.</p>
+      <ul>
+        <li>Subset dynamic program prices each tree grouping with full descendant cost plus Cube query-row padding, KV-layout continuity splits, and log-sum-exp merge terms; extends the FastTree (MLSys&#x27;25) cost-model line.</li>
+        <li>128 requests x 8192 tokens sharing 8128: 2.523 ms resident attention vs 2.839 ms for the faster vendor fused-operator layout (1.126x); 1.315x geometric-mean speedup across 81 held-out tree shapes.</li>
+        <li>Pretrained Qwen3-4B on shared KV pools: 1,224 layer comparisons pass against FP32 and vendor attention (max rel L2 0.218%); cached plans cut per-step planning-plus-attention from 3.896 ms to 0.606 ms.</li>
+      </ul>
+        <div class="links"><a class="chip" href="https://github.com/Gxj230958/tree-attention-scheduling">Code</a><a class="chip" href="https://github.com/Gxj230958/tree-attention-scheduling/blob/main/reports/technical_report.md">Report</a></div>
+      </div>
+    </article>
+    </div>
+  </section>
+
+  <footer>
+    <span>&copy; 2026 Xingjian Guo</span>
+    <span><a href="https://github.com/Gxj230958">github.com/Gxj230958</a></span>
+  </footer>
+</div>
+</body>
+</html>
