@@ -5,7 +5,7 @@
 body {
   background-color: #fff;
   padding: 0;
-  font: 16.0px/1.5 Crimson Pro, serif;
+  font: 18.0px/1.5 Crimson Pro, serif;
   color: #595959;
   font-weight: 400;
   margin: 0;
@@ -16,12 +16,13 @@ html { overflow-y: scroll; }
 /* ---------- structure ---------- */
 
 .wrapper {
-  width: 960px;
+  width: 90%;
+  max-width: 1180px;
   margin: 0 auto;
 }
 
 header {
-  width: 232px;
+  width: 260px;
   float: left;
   position: fixed;
   -webkit-font-smoothing: subpixel-antialiased;
@@ -30,14 +31,15 @@ header {
 }
 
 section {
-  width: 650px;
+  width: calc(100% - 320px);
+  max-width: 860px;
   float: right;
   padding-top: 4em;
   padding-bottom: 50px;
 }
 
 footer {
-  width: 232px;
+  width: 260px;
   float: left;
   position: fixed;
   bottom: 30px;
@@ -51,7 +53,7 @@ h1 {
   font-weight: 500;
   color: #043361;
   margin: 0 0 20px;
-  font-size: 28px;
+  font-size: 31px;
 }
 
 h2 {
@@ -80,10 +82,10 @@ a:hover { color: #069; }
 
 strong { color: #222; font-weight: 500; }
 
-small { font-size: 11px; }
+small { font-size: 12px; }
 
 email {
-  font-size: 14px;
+  font-size: 15.5px;
   font-family: "Ubuntu Mono";
 }
 
@@ -98,8 +100,8 @@ email {
 
 .image.avatar {
   border-radius: 0;
-  width: 150px;
-  height: 150px;
+  width: 160px;
+  height: 160px;
   margin: 0 auto;
 }
 
@@ -116,14 +118,14 @@ header .image.avatar {
 
 .social-icons a {
   display: inline-block;
-  height: 2.4rem;
-  width: 2.4rem;
+  height: 2.6rem;
+  width: 2.6rem;
   background-color: transparent;
   color: #043361 !important;
   border-radius: 100%;
   text-align: center;
-  font-size: 1.15rem;
-  line-height: 2.5rem;
+  font-size: 1.3rem;
+  line-height: 2.7rem;
   margin-right: 1rem;
 }
 
@@ -167,7 +169,7 @@ ul.entries li::marker {
   background-color: #ffffff;
   color: #000000 !important;
   border: 1px solid #000000 !important;
-  font-size: 12px;
+  font-size: 13px;
   padding: 0.1rem 0.5rem;
   display: inline-block;
   text-align: center;
@@ -215,8 +217,8 @@ figure.cover img {
     margin: 0 0 20px;
   }
   .image.avatar {
-    width: 120px;
-    height: 120px;
+    width: 128px;
+    height: 128px;
   }
 }
 
@@ -229,8 +231,8 @@ figure.cover img {
     padding: 0;
   }
   .image.avatar {
-    width: 120px;
-    height: 120px;
+    width: 128px;
+    height: 128px;
   }
   pre, code {
     word-wrap: normal;
@@ -242,8 +244,8 @@ figure.cover img {
     padding: 15px;
   }
   .image.avatar {
-    width: 95px;
-    height: 95px;
+    width: 100px;
+    height: 100px;
   }
 }
 
