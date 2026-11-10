@@ -1,0 +1,33 @@
+{{ define "main" }}
+<h2>About Me</h2>
+{{ .Content }}
+
+<h2>Independent Research &amp; Open-Source Contributions</h2>
+<p>Eight independent research projects on Huawei Ascend 910B NPUs, spanning kernel engineering, LLM inference and serving, diffusion-model efficiency, distributed training, and memory planning. Each project ships a full implementation, measured results, and a technical report; several are upstream pull requests to Flash-KMeans, FastVideo, ParoQuant, and DeepSpeed.</p>
+<ul class="entries">
+  {{ range (where site.RegularPages "Section" "research").ByWeight }}
+  <li>
+    <a class="entry-title" href="{{ .RelPermalink }}">{{ .Title }}</a>
+    <p class="entry-sum">{{ .Params.tagline }}</p>
+    <span class="entry-links">
+      {{ with .Params.code }}<a class="btn" href="{{ . }}">Code</a>{{ end }}
+      {{ with .Params.report }}<a class="btn" href="{{ . }}">Report</a>{{ end }}
+      {{ with .Params.pr }}<a class="btn" href="{{ . }}">PR</a>{{ end }}
+    </span>
+  </li>
+  {{ end }}
+</ul>
+
+<h2>Internship</h2>
+<ul class="entries">
+  {{ range (where site.RegularPages "Section" "internship").ByWeight }}
+  <li>
+    <a class="entry-title" href="{{ .RelPermalink }}">{{ .Title }}</a>
+    <p class="entry-sum">{{ .Params.summary }}</p>
+    <span class="entry-links">
+      {{ with .Params.code }}<a class="btn" href="{{ . }}">Code</a>{{ end }}
+    </span>
+  </li>
+  {{ end }}
+</ul>
+{{ end }}

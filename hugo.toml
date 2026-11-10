@@ -1,0 +1,10 @@
+baseURL = "https://gxj230958.github.io/"
+title = "Xingjian Guo"
+languageCode = "en-US"
+defaultContentLanguage = "en"
+
+[params]
+  name = "Xingjian Guo"
+  email = "gxj230958@outlook.com"
+  github = "https://github.com/Gxj230958"
+  description = "Independent research and open-source contributions in machine learning systems and high-performance computing on Ascend NPUs."

@@ -1,0 +1,16 @@
+{{ define "main" }}
+<h2>{{ .Title }}</h2>
+{{ with .Params.summary }}<p><em>{{ . }}</em></p>{{ end }}
+{{ with .Params.cover }}
+<figure class="cover">
+  <img src="{{ . }}" alt="{{ $.Title }} — system overview figure">
+</figure>
+{{ end }}
+{{ .Content }}
+<p class="entry-links detail-links">
+  {{ with .Params.code }}<a class="btn" href="{{ . }}">Code</a>{{ end }}
+  {{ with .Params.report }}<a class="btn" href="{{ . }}">Report</a>{{ end }}
+  {{ with .Params.pr }}<a class="btn" href="{{ . }}">PR</a>{{ end }}
+</p>
+<p><a href="{{ "/" | relURL }}">&larr; Back to home</a></p>
+{{ end }}
