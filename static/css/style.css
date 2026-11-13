@@ -10,10 +10,10 @@ a:focus-visible { outline: 2px solid #069; outline-offset: 4px; }
 .top-nav li { margin: 0 15px; }
 .top-nav a { display: block; color: #043361; font-size: 1.3rem; font-weight: bold; padding: 5px 10px; border-radius: 6px; }
 .top-nav a:hover { background: #ffffee; }
-.wrapper { width: 960px; margin: 0 auto; }
-header { width: 232px; position: fixed; padding-top: 4em; text-align: center; }
-main { width: 650px; float: right; padding: 4em 0 50px; }
-footer { position: fixed; width: 232px; bottom: 30px; text-align: center; }
+.wrapper { display: grid; grid-template-columns: 232px minmax(0, 650px); column-gap: 78px; width: 960px; margin: 0 auto; align-items: start; }
+.wrapper > header { grid-column: 1; grid-row: 1; position: sticky; top: 4em; margin-top: 4em; text-align: center; }
+.wrapper > main { grid-column: 2; grid-row: 1; min-width: 0; padding: 4em 0 50px; }
+.wrapper > footer { grid-column: 1; grid-row: 2; padding-bottom: 30px; text-align: center; }
 h1, h2, h3 { color: #043361; line-height: 1.1; }
 h1 { font-size: 28px; font-weight: 500; margin: 0 0 20px; }
 h2 { font-size: 157%; font-weight: 500; margin: 2px 0 15px; scroll-margin-top: 20px; }
@@ -46,11 +46,10 @@ table { border-collapse: collapse; width: 100%; }
 td, th { padding: 5px; border-bottom: 1px solid #ddd; }
 @media (max-width: 960px) {
   body { padding: 15px; }
-  .wrapper { width: auto; max-width: 720px; }
-  header, main, footer { position: static; float: none; width: auto; }
-  header { padding-top: 24px; }
-  main { padding: 30px 0; }
-  footer { padding-bottom: 20px; }
+  .wrapper { display: block; width: auto; max-width: 720px; }
+  .wrapper > header { position: static; margin-top: 24px; }
+  .wrapper > main { padding: 30px 0; }
+  .wrapper > footer { padding-bottom: 20px; }
   .top-nav { padding: 0; }
 }
 @media (max-width: 600px) {
@@ -62,8 +61,8 @@ td, th { padding: 5px; border-bottom: 1px solid #ddd; }
   .image.avatar { width: 128px; height: 128px; }
 }
 @media print {
-  header, main, footer { position: static; float: none; width: auto; }
-  .wrapper { width: auto; }
+  .wrapper > header { position: static; margin-top: 0; }
+  .wrapper { display: block; width: auto; }
   .top-nav { display: none; }
   .project-row { break-inside: avoid; }
 }
