@@ -1,5 +1,6 @@
 ---
 title: "Budget-Driven Activation Memory Planning for FastVideo Training"
+summary: "Combines tensor-lifetime modeling with a mixed-integer planner to select saved, recomputed or CPU-offloaded activations. Wan2.1-1.3B fits a 24 GiB budget at 23.498 GiB peak and takes 14.97% less step time than full recomputation; supports multi-role DMD2 and FSDP2 training."
 weight: 5
 tagline: "Event-liveness model plus MILP planner that selects per-block activation save, recompute, or CPU offload under a strict memory budget for video-diffusion training on Ascend 910B."
 cover: "/covers/hao_zhang.svg"

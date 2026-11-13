@@ -1,5 +1,6 @@
 ---
 title: "Streaming Flash-KMeans: Exact Batched Lloyd Clustering on Ascend NPUs"
+summary: "Streams distance assignment onto Cube units and updates centers with sorted FP32 reductions, preserving Lloyd iteration semantics. Runs 2.72–2.80× faster than tuned PyTorch at the video-example scale; real Wan2.1 features achieve 1.81× speedup with 75% lower peak memory."
 weight: 1
 tagline: "An Ascend 910B execution path for Flash-KMeans that runs complete Lloyd iterations 2.72–2.80× faster than tuned PyTorch at the video-example scale while using 56.8% less memory."
 cover: "/covers/chenfeng_xu.svg"

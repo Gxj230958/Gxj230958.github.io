@@ -1,5 +1,6 @@
 ---
 title: "Cost-Aware Mixed-Precision Scheduling for Diffusion Transformers"
+summary: "Selects a fixed INT8/BF16 table from paired error and complete layer costs across 144 modules and five sampling segments. At batch 8, all 720 decisions retain BF16, avoiding the 11.2% latency increase of uniform W8A8; uniform W8A8 saves 20.4% peak memory."
 weight: 2
 tagline: "Measured-cost per-timestep-segment, per-module INT8/BF16 scheduling for DiT-XL/2 on Ascend 910B, with paired error-and-cost calibration and full-generation FID evaluation."
 cover: "/covers/tony_geng.svg"

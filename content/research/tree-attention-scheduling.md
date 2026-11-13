@@ -1,5 +1,6 @@
 ---
 title: "Tree-Shared Attention Scheduling for Ascend Cube"
+summary: "Uses subset dynamic programming to group shared-prefix requests, accounting for Cube padding, KV continuity and merge cost. Achieves 1.315× geometric-mean speedup over per-request tree execution on 81 held-out shapes, with 1,224 layer comparisons on pretrained Qwen3-4B."
 weight: 8
 tagline: "Subset-DP grouping with hardware-aware costs for tree-shared decode attention on one Ascend 910B NPU, integrated and validated end-to-end on pretrained Qwen3-4B."
 cover: "/covers/yufei_ding.svg"

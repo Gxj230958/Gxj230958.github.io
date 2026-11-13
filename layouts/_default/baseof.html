@@ -16,11 +16,18 @@
     <link rel="stylesheet" href="/css/style.css">
   </head>
   <body>
+    <nav class="top-nav" aria-label="Main navigation">
+      <ul>
+        <li><a href="{{ "/" | relURL }}">Home</a></li>
+        <li><a href="{{ "/#research" | relURL }}">Research</a></li>
+        <li><a href="{{ "/#internship" | relURL }}">Internship</a></li>
+      </ul>
+    </nav>
     <div class="wrapper">
       {{ partial "sidebar.html" . }}
-      <section>
+      <main id="main-content">
         {{ block "main" . }}{{ end }}
-      </section>
+      </main>
       <footer>
         <small>&copy; 2026 {{ site.Params.name }}</small>
       </footer>

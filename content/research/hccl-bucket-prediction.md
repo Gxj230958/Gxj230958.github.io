@@ -1,5 +1,6 @@
 ---
 title: "Execution-Graph Prediction and DDP Bucket Selection for HCCL Training"
+summary: "Predicts distributed step time from measured gradient-readiness graphs and HCCL costs, then selects DDP bucket sizes. Held-out 2/4/8-NPU prediction errors are 7.77%/5.74%/4.23%; selected configurations finish within 3.29% of the measured best."
 weight: 7
 tagline: "Critical-path prediction from measured gradient-readiness dependency graphs and automatic DDP bucket sizing, validated on 2/4/8 Ascend 910B NPUs over HCCL."
 cover: "/covers/minlan_yu.svg"

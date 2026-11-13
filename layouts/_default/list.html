@@ -1,13 +1,8 @@
 {{ define "main" }}
 <h2>{{ .Title }}</h2>
-<ul class="entries">
-  {{ range .Pages.ByWeight }}
-  <li>
-    <a class="entry-title" href="{{ .RelPermalink }}">{{ .Title }}</a>
-    {{ with .Params.tagline }}<p class="entry-sum">{{ . }}</p>{{ end }}
-    {{ with .Params.summary }}<p class="entry-sum">{{ . }}</p>{{ end }}
-  </li>
-  {{ end }}
+{{ .Content }}
+<ul class="entries project-list">
+{{ range .Pages.ByWeight }}{{ partial "project-row.html" . }}{{ end }}
 </ul>
 <p><a href="{{ "/" | relURL }}">&larr; Back to home</a></p>
 {{ end }}

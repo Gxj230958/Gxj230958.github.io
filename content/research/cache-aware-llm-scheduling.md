@@ -1,5 +1,6 @@
 ---
 title: "Cache-Aware Fair Scheduling for LLM Serving on Ascend NPU"
+summary: "Extends vLLM-Ascend with executed-work accounting for cached prefixes, prefill chunks, dynamic batches and preemption. On Qwen3-4B, reduces service gaps by 16.16% on shared prefixes and 22.73% on bursts versus profiled VTC, at 4.32% and 0.79% median throughput cost."
 weight: 3
 tagline: "Executed-work service accounting for fair multi-user LLM inference under prefix caching, chunked prefill and dynamic batching, built on vLLM-Ascend."
 cover: "/covers/danyang_zhuo.svg"

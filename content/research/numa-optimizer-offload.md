@@ -1,5 +1,6 @@
 ---
 title: "NUMA-Aware Optimizer Offload for LLM Training"
+summary: "Pipelines gradient staging, NUMA-local CPU AdamW and weight write-back with bounded buffers. Achieves 1.43–1.59× complete-step speedups over tuned synchronous offload across Qwen3-0.6B, 1.7B and 4B; contributes a GIL-release patch to DeepSpeed CPUAdam."
 weight: 6
 tagline: "Bounded gradient-transfer, CPU AdamW and weight write-back pipeline for full-parameter Qwen3 training on Ascend 910B, with a DeepSpeed GIL patch."
 cover: "/covers/minjia_zhang.svg"

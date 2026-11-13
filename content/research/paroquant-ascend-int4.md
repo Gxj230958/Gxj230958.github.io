@@ -1,5 +1,6 @@
 ---
 title: "ParoQuant on Ascend: Fused Rotation and Packed INT4 Execution"
+summary: "Fuses channel scaling and eight rotation stages, then executes published ParoQuant checkpoints with native packed INT4 weights. Reduces peak memory by 38.9–42.1% versus cached FP16 execution of the same weights, with end-to-end quality validation on Qwen3-4B and 8B."
 weight: 4
 tagline: "Fused eight-stage rotation kernels and native packed-INT4 execution for ParoQuant Qwen3-4B/8B on Ascend 910B, cutting peak memory 38.9-42.1% with validated quality."
 cover: "/covers/zhijian_liu.svg"

@@ -8,10 +8,9 @@ workflow).
 ## Structure
 
 - `content/_index.md` — About Me text
-- `content/research/*.md` — the eight research projects (home shows title +
-  summary; each file is a detail page with bullets and Code/Report/PR links)
-- `content/internship/*.md` — internship entries (summary on home, details on
-  the page)
+- `content/research/*.md` — the eight research projects (home shows a scientific cover, title and abstract; each file is a detail page with bullets and Code/Report/PR links)
+- `content/internship/*.md` — internship entries, including Layout-aware MoE
+  Training with its visual report at `/projects/moe-training-ascend/`
 - `layouts/` — baseof, home (`index.html`), `single.html`, `list.html`,
   `partials/sidebar.html`
 - `static/css/` — fonts (Crimson Pro, Ubuntu Mono) and site styles

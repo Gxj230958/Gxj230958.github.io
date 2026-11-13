@@ -1,0 +1,19 @@
+{{ $target := .RelPermalink }}
+{{ with .Params.externalURL }}{{ $target = . }}{{ end }}
+<li class="project-row{{ if not .Params.cover }} text-entry{{ end }}">
+  {{ with .Params.cover }}
+  <a class="project-cover" href="{{ $target }}" aria-label="Read {{ $.Title }}">
+    <img src="{{ . | relURL }}" alt="{{ $.Params.coverAlt | default (printf "%s — system overview" $.Title) }}" width="600" height="400" loading="lazy">
+  </a>
+  {{ end }}
+  <div class="project-body">
+    <h3><a class="entry-title" href="{{ $target }}">{{ .Title }}</a></h3>
+    <p class="entry-sum">{{ .Params.summary | default .Params.tagline }}</p>
+    <div class="entry-links">
+      {{ with .Params.code }}<a class="btn" href="{{ . }}">Code</a>{{ end }}
+      {{ with .Params.report }}<a class="btn" href="{{ . }}">Report</a>{{ end }}
+      {{ with .Params.pr }}<a class="btn" href="{{ . }}">PR</a>{{ end }}
+      {{ if not .Params.report }}<a class="btn" href="{{ $target }}">Details</a>{{ end }}
+    </div>
+  </div>
+</li>
