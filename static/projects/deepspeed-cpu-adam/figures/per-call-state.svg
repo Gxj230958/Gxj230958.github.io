@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="600pt" height="345pt" viewBox="0 0 600 345" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <title>How two calls share one optimizer ID</title>
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:title>How two calls share one optimizer ID</dc:title>
+    <dc:description>Each call snapshots its private scale and optional copy destination while holding the GIL. Native kernels update independent tensors after releasing it.</dc:description>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.11.2, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 345
+L 600 345
+L 600 0
+L 0 0
+z
+" style="fill: #fffdf8"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 21 51
+L 354 51
+Q 360 51 360 57
+L 360 269
+Q 360 275 354 275
+L 21 275
+Q 15 275 15 269
+L 15 57
+Q 15 51 21 51
+z
+" clip-path="url(#pfc1c62314c)" style="fill: #f6f1e7"/>
+   </g>
+   <g id="patch_3">
+    <path d="M 373 51
+L 579 51
+Q 585 51 585 57
+L 585 269
+Q 585 275 579 275
+L 373 275
+Q 367 275 367 269
+L 367 57
+Q 367 51 373 51
+z
+" clip-path="url(#pfc1c62314c)" style="fill: #faf5ef"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 30 138
+L 130 138
+Q 134 138 134 142
+L 134 212
+Q 134 216 130 216
+L 30 216
+Q 26 216 26 212
+L 26 142
+Q 26 138 30 138
+z
+" clip-path="url(#pfc1c62314c)" style="fill: #fffdf8; stroke: #b4a895; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 149 146
+Q 159.5 146 168.658359 146
+" clip-path="url(#pfc1c62314c)" style="fill: none; stroke: #514b44; stroke-width: 1.2; stroke-linecap: round"/>
+    <path d="M 164.858359 144.1
+L 168.658359 146
+L 164.858359 147.9
+z
+" clip-path="url(#pfc1c62314c)" style="fill: #514b44; stroke: #514b44; stroke-width: 1.2; stroke-linecap: round"/>
+   </g>
+   <g id="patch_6">
+    <path d="M 176 120
+L 342 120
+Q 345 120 345 123
+L 345 169
+Q 345 172 342 172
+L 176 172
+Q 173 172 173 169
+L 173 123
+Q 173 120 176 120
+z
+" clip-path="url(#pfc1c62314c)" style="fill: #fffdf8; stroke: #cfc6b9; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_7">
+    <path d="M 173 120
+L 177 120
+L 177 172
+L 173 172
+z
+" clip-path="url(#pfc1c62314c)" style="fill: #a33c25"/>
+   </g>
+   <g id="patch_8">
+    <path d="M 345 146
+Q 360.5 146 374.658359 146
+" clip-path="url(#pfc1c62314c)" style="fill: none; stroke: #a33c25; stroke-width: 1.2; stroke-linecap: round"/>
+    <path d="M 370.858359 144.1
+L 374.658359 146
+L 370.858359 147.9
+z
+" clip-path="url(#pfc1c62314c)" style="fill: #a33c25; stroke: #a33c25; stroke-width: 1.2; stroke-linecap: round"/>
+   </g>
+   <g id="patch_9">
+    <path d="M 381 120
+L 570 120
+Q 573 120 573 123
+L 573 169
+Q 573 172 570 172
+L 381 172
+Q 378 172 378 169
+L 378 123
+Q 378 120 381 120
+z
+" clip-path="url(#pfc1c62314c)" style="fill: #f6e4dc"/>
+   </g>
+   <g id="patch_10">
+    <path d="M 149 222
+Q 159.5 222 168.658359 222
+" clip-path="url(#pfc1c62314c)" style="fill: none; stroke: #514b44; stroke-width: 1.2; stroke-linecap: round"/>
+    <path d="M 164.858359 220.1
+L 168.658359 222
+L 164.858359 223.9
+z
+" clip-path="url(#pfc1c62314c)" style="fill: #514b44; stroke: #514b44; stroke-width: 1.2; stroke-linecap: round"/>
+   </g>
+   <g id="patch_11">
+    <path d="M 176 196
+L 342 196
+Q 345 196 345 199
+L 345 245
+Q 345 248 342 248
+L 176 248
+Q 173 248 173 245
+L 173 199
+Q 173 196 176 196
+z
+" clip-path="url(#pfc1c62314c)" style="fill: #fffdf8; stroke: #cfc6b9; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_12">
+    <path d="M 173 196
+L 177 196
+L 177 248
+L 173 248
+z
+" clip-path="url(#pfc1c62314c)" style="fill: #97610c"/>
+   </g>
+   <g id="patch_13">
+    <path d="M 345 222
+Q 360.5 222 374.658359 222
+" clip-path="url(#pfc1c62314c)" style="fill: none; stroke: #97610c; stroke-width: 1.2; stroke-linecap: round"/>
+    <path d="M 370.858359 220.1
+L 374.658359 222
+L 370.858359 223.9
+z
+" clip-path="url(#pfc1c62314c)" style="fill: #97610c; stroke: #97610c; stroke-width: 1.2; stroke-linecap: round"/>
+   </g>
+   <g id="patch_14">
+    <path d="M 381 196
+L 570 196
+Q 573 196 573 199
+L 573 245
+Q 573 248 570 248
+L 381 248
+Q 378 248 378 245
+L 378 199
+Q 378 196 381 196
+z
+" clip-path="url(#pfc1c62314c)" style="fill: #f6e8c9"/>
+   </g>
+   <g id="line2d_1">
+    <path d="M 26 89
+L 348 89
+" clip-path="url(#pfc1c62314c)" style="fill: none; stroke: #cfc6b9; stroke-width: 0.8"/>
+   </g>
+   <g id="line2d_2">
+    <path d="M 378 89
+L 572 89
+" clip-path="url(#pfc1c62314c)" style="fill: none; stroke: #cfc6b9; stroke-width: 0.8"/>
+   </g>
+   <g id="line2d_3">
+    <path d="M 134 177
+L 149 177
+" clip-path="url(#pfc1c62314c)" style="fill: none; stroke: #514b44; stroke-width: 1.2"/>
+   </g>
+   <g id="line2d_4">
+    <path d="M 149 146
+L 149 222
+" clip-path="url(#pfc1c62314c)" style="fill: none; stroke: #514b44; stroke-width: 1.2"/>
+   </g>
+   <g id="line2d_5">
+    <path d="M 16 291
+L 584 291
+" clip-path="url(#pfc1c62314c)" style="fill: none; stroke: #cfc6b9"/>
+   </g>
+   <g id="text_1">
+    <text style="font-weight: 700; font-size: 20px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #28241f" x="18" y="27.51875" transform="rotate(-0 18 27.51875)">How two calls share one optimizer ID</text>
+   </g>
+   <g id="text_2">
+    <text style="font-weight: 700; font-size: 14px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #28241f" x="26" y="77.219375" transform="rotate(-0 26 77.219375)">GIL held</text>
+   </g>
+   <g id="text_3">
+    <text style="font-weight: 700; font-size: 14px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #a33c25" x="378" y="77.219375" transform="rotate(-0 378 77.219375)">GIL released</text>
+   </g>
+   <g id="text_4">
+    <text style="font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #686158" x="27" y="109.035313" transform="rotate(-0 27 109.035313)">Registry entry</text>
+   </g>
+   <g id="text_5">
+    <text style="font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #686158" x="173" y="109.035313" transform="rotate(-0 173 109.035313)">Private snapshot</text>
+   </g>
+   <g id="text_6">
+    <text style="font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #686158" x="378" y="110.100937" transform="rotate(-0 378 110.100937)">Native kernel</text>
+   </g>
+   <g id="text_7">
+    <text style="font-weight: 700; font-size: 14px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #28241f" x="37" y="162.095781" transform="rotate(-0 37 162.095781)">One ID</text>
+   </g>
+   <g id="text_8">
+    <text style="font-size: 10.8px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #514b44" x="37" y="182.980125" transform="rotate(-0 37 182.980125)">step, betas,</text>
+   </g>
+   <g id="text_9">
+    <text style="font-size: 10.8px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #514b44" x="37" y="198.980125" transform="rotate(-0 37 198.980125)">learning rate</text>
+   </g>
+   <g id="text_10">
+    <text style="font-weight: 700; font-size: 12.8px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #28241f" x="184" y="140.532" transform="rotate(-0 184 140.532)">Plain update</text>
+   </g>
+   <g id="text_11">
+    <text style="font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #514b44" x="184" y="159.035313" transform="rotate(-0 184 159.035313)">scale 1  ·  no copy</text>
+   </g>
+   <g id="text_12">
+    <text style="font-weight: 700; font-size: 13px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #a33c25" x="389" y="140.846563" transform="rotate(-0 389 140.846563)">Bucket A</text>
+   </g>
+   <g id="text_13">
+    <text style="font-size: 10.7px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #28241f" x="389" y="157.952531" transform="rotate(-0 389 157.952531)">Update A and its moments</text>
+   </g>
+   <g id="text_14">
+    <text style="font-weight: 700; font-size: 12.8px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #28241f" x="184" y="216.532" transform="rotate(-0 184 216.532)">Scaled update</text>
+   </g>
+   <g id="text_15">
+    <text style="font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #514b44" x="184" y="235.035313" transform="rotate(-0 184 235.035313)">scale s  ·  BF16 target B</text>
+   </g>
+   <g id="text_16">
+    <text style="font-weight: 700; font-size: 13px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #97610c" x="389" y="216.846563" transform="rotate(-0 389 216.846563)">Bucket B</text>
+   </g>
+   <g id="text_17">
+    <text style="font-size: 10.7px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #28241f" x="389" y="233.952531" transform="rotate(-0 389 233.952531)">Update B and its moments</text>
+   </g>
+   <g id="text_18">
+    <text style="font-size: 10.2px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #97610c" x="388" y="262.814562" transform="rotate(-0 388 262.814562)">B also writes its BF16 target.</text>
+   </g>
+   <g id="text_19">
+    <text style="font-weight: 700; font-size: 12px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #28241f" x="23" y="316.264375" transform="rotate(-0 23 316.264375)">Training thread</text>
+   </g>
+   <g id="text_20">
+    <text style="font-size: 12px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #514b44" x="145" y="316.31125" transform="rotate(-0 145 316.31125)">Can enqueue transfers while independent kernels run.</text>
+   </g>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="pfc1c62314c">
+   <rect x="0" y="0" width="600" height="345"/>
+  </clipPath>
+ </defs>
+</svg>
