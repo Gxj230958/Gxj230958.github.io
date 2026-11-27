@@ -1,13 +1,22 @@
 ---
-title: "NUMA-Aware Optimizer Offload for LLM Training"
-summary: "Pipelines gradient staging, NUMA-local CPU AdamW and weight write-back with bounded buffers. Achieves 1.43–1.59× complete-step speedups over tuned synchronous offload across Qwen3-0.6B, 1.7B and 4B; contributes a GIL-release patch to DeepSpeed CPUAdam."
-weight: 6
-tagline: "Bounded gradient-transfer, CPU AdamW and weight write-back pipeline for full-parameter Qwen3 training on Ascend 910B, with a DeepSpeed GIL patch."
+title: "Concurrent CPU Adam Updates for DeepSpeed Offload"
+summary: "DeepSpeed’s native CPU Adam update held Python’s interpreter lock, stalling other workers. Releasing the lock after copying each call’s optimizer state sped up complete Qwen3-0.6B training steps by 1.151× in a four-worker offload pipeline on one Ascend 910B. Merged in DeepSpeed #9035."
+weight: -1
 cover: "/covers/minjia_zhang.svg"
-code: "https://github.com/Gxj230958/numa-optimizer-offload"
-report: "https://github.com/Gxj230958/numa-optimizer-offload/blob/main/reports/technical_report.md"
+coverAlt: "Paired Qwen3-0.6B training steps took 721–729 ms with the GIL held and 625–637 ms with it released, across three seeds."
+code: "https://github.com/deepspeedai/DeepSpeed/blob/71ee91cf28a58432322eacaadf9c46613237baf8/csrc/adam/cpu_adam_impl.cpp"
+report: "/reports/deepspeed-cpu-adam.pdf"
 pr: "https://github.com/deepspeedai/DeepSpeed/pull/9035"
 ---
-- Pipelined CPU-NPU offload gives 1.430x/1.516x/1.590x complete-step speedups over tuned synchronous offload on Qwen3-0.6B/1.7B/4B (33 processes, 198 timed updates).
-- Joint calibration over 8/32/128 MiB buckets, depths 1/2/4, 4-32 threads and local/remote NUMA affinity selects 8 MiB + depth 4 + 8 local threads on complete-step time.
-- Offloading trains 4B at 2,048 tokens where the tested resident optimizer OOMs at 256; GIL release in DeepSpeed CPUAdam adds a median 1.151x paired training speedup.
+
+### What changes during an update
+
+A training thread can now schedule gradient transfers and weight returns while CPU workers update independent parameter buckets. DeepSpeed still holds the global interpreter lock (GIL) while updating the shared step state. Each native call takes a snapshot with its own gradient scale and optional BF16 copy destination, then releases the GIL for the update. Two calls can share an optimizer ID while operating on separate tensors.
+
+### End-to-end training results
+
+Across three paired seeds, median step times fell from 729 to 637 ms, 721 to 626 ms, and 723 to 625 ms. Both builds used the same four-worker pipeline, compiler flags and inputs. Each run used two warmup steps and six timed steps. Peak allocated NPU memory was 3.764 GiB in all six runs. Gradient norms matched for every paired step, and the largest absolute loss difference was 4.77 × 10⁻⁷. [Paired measurements](https://github.com/Gxj230958/numa-optimizer-offload/blob/main/results/cpu_adam_comparison/summary.json)
+
+### NUMA-aware offload study
+
+The wider study measured the effect of overlapping gradient staging, CPU AdamW and weight returns. Against independently tuned synchronous offload, the pipeline sped up complete training steps by 1.43×, 1.52× and 1.59× on Qwen3-0.6B, 1.7B and 4B, respectively. Against DeepSpeed ZeRO-Offload, the pipeline was faster on 0.6B, had overlapping timings on 1.7B and took 8.52% longer per step on 4B. [Experiment code](https://github.com/Gxj230958/numa-optimizer-offload) · [Full offload study](https://github.com/Gxj230958/numa-optimizer-offload/blob/main/reports/technical_report.md)
