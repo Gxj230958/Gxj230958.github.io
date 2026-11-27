@@ -1,0 +1,13 @@
+{
+  "cohort": "Length extrapolation after the original six Mixtral measurements",
+  "model": "First pretrained Mixtral-8x7B-v0.1 expert block",
+  "design": "Keep the original rule and one-row pack/two-row combine tiles. Increase T fourfold from 8192 to 32768. Apply the existing matched complete-block protocol on a single 910B2C per case.",
+  "T": 32768,
+  "R": 0.3888888888888889,
+  "reason": "With distinct top-2 assignments, an expert can receive at most half of all assignments, including the controlled hotspot. R is below one. The original rule therefore predicts a practical tie and dispatches to B on both workloads.",
+  "cases": [
+    {"routing": "hot", "predicted_class": "within 1 percent", "selected": "B"},
+    {"routing": "text", "predicted_class": "within 1 percent", "selected": "B"}
+  ],
+  "evaluation": "Report the same median-ratio reduction and paired bootstrap interval as the original six. Compare B, C and the unchanged rule with the per-case oracle, weighting each case once. Keep this cohort separate from the first prospective evaluation."
+}

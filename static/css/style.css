@@ -66,3 +66,9 @@ td, th { padding: 5px; border-bottom: 1px solid #ddd; }
   .top-nav { display: none; }
   .project-row { break-inside: avoid; }
 }
+
+.research-paper img { display: block; width: 100%; height: auto; }
+.research-paper p:has(> img) { margin: 1.6em 0 .45em; }
+.research-paper p:has(> img) + p { font-size: .94em; }
+.research-paper h2 { margin-top: 1.5em; }
+.research-paper table { display: block; overflow-x: auto; }

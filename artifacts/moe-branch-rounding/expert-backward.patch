@@ -1,0 +1,932 @@
+diff --git a/tests/special_sanity/check_license.py b/tests/special_sanity/check_license.py
+index 425923af..616a271e 100644
+--- a/tests/special_sanity/check_license.py
++++ b/tests/special_sanity/check_license.py
+@@ -22,6 +22,7 @@ license_head_bytedance_26 = "Copyright 2026 Bytedance Ltd. and/or its affiliates
+ # Add custom license headers below
+ license_head_prime = "Copyright 2024 PRIME team and/or its affiliates"
+ license_head_individual = "Copyright 2025 Individual Contributor:"
++license_head_verl_contributors = "Copyright 2026 verl contributors"
+ license_head_sglang = "Copyright 2023-2024 SGLang Team"
+ license_head_modelbest = "Copyright 2025 ModelBest Inc. and/or its affiliates"
+ license_head_amazon = "Copyright 2025 Amazon.com Inc and/or its affiliates"
+@@ -40,6 +41,7 @@ license_headers = [
+     license_head_bytedance_26,
+     license_head_prime,
+     license_head_individual,
++    license_head_verl_contributors,
+     license_head_sglang,
+     license_head_modelbest,
+     license_head_amazon,
+diff --git a/tests/utils/test_npu_moe_backward_on_cpu.py b/tests/utils/test_npu_moe_backward_on_cpu.py
+new file mode 100644
+index 00000000..ae7704e0
+--- /dev/null
++++ b/tests/utils/test_npu_moe_backward_on_cpu.py
+@@ -0,0 +1,131 @@
++# Copyright 2026 verl contributors
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++"""CPU autograd wiring; actual CANN/Triton products are verified on NPU."""
++
++import sys
++from types import ModuleType, SimpleNamespace
++
++import pytest
++import torch
++from torch import nn
++from torch.utils.checkpoint import checkpoint
++
++from verl.utils.kernel.npu import qwen3_moe
++
++pytest_plugins = ("test_npu_moe_routing_on_cpu",)
++
++
++@pytest.fixture
++def paired_products(monkeypatch, npu_patch):
++    patch, fake = npu_patch
++    kernel = ModuleType("verl.utils.kernel.npu.qwen3_moe_triton")
++    hits = []
++
++    def paired(grad, weight, counts):
++        hits.append(True)
++        parts = [
++            qwen3_moe._grouped_mm(g, w.transpose(1, 2), counts)
++            for g, w in zip(grad.chunk(2, -1), weight.chunk(2, -1), strict=True)
++        ]
++        return parts[0] + parts[1]
++
++    kernel.branch_group_dx = paired
++    monkeypatch.setitem(sys.modules, kernel.__name__, kernel)
++    return patch, fake, hits
++
++
++@pytest.mark.parametrize("paired", [False, True])
++@pytest.mark.parametrize("strided_gradient", [False, True])
++def test_parameter_layout_and_input_gradient(paired_products, paired, strided_gradient):
++    _, _, hits = paired_products
++    torch.manual_seed(47)
++    counts = torch.tensor([3, 0, 1, 2])
++    x = torch.randn(6, 4, dtype=torch.float64, requires_grad=True)
++    storage = torch.randn(4 * 6 * 4 + 17, dtype=torch.float64)
++    physical = storage[17:].view(4, 6, 4).requires_grad_()
++    weight = physical.transpose(1, 2)
++    output = qwen3_moe._PackedQwen3GMM.apply(x, weight, counts, paired)
++    expected = torch.cat([part @ w for part, w in zip(x.split(counts.tolist()), weight, strict=True)])
++    upstream = torch.randn(6, 12 if strided_gradient else 6, dtype=x.dtype)
++    upstream = upstream[:, ::2] if strided_gradient else upstream
++    actual = torch.autograd.grad(output, (x, physical), upstream)
++    reference = torch.autograd.grad(expected, (x, physical), upstream)
++    torch.testing.assert_close(output, expected, rtol=1e-10, atol=1e-12)
++    for a, b in zip(actual, reference, strict=True):
++        torch.testing.assert_close(a, b, rtol=1e-10, atol=1e-12)
++    assert actual[1].is_contiguous()
++    assert bool(hits) == (paired and not strided_gradient)
++    torch.testing.assert_close(actual[1][1], torch.zeros_like(actual[1][1]), rtol=0, atol=0)
++
++
++def test_fixed_assignment_gradcheck(paired_products):
++    torch.manual_seed(47)
++    x = torch.randn(3, 2, dtype=torch.float64, requires_grad=True)
++    physical = torch.randn(2, 4, 2, dtype=torch.float64, requires_grad=True)
++    counts = torch.tensor([1, 2])
++
++    def forward(x, physical):
++        return qwen3_moe._PackedQwen3GMM.apply(x, physical.transpose(1, 2), counts, True)
++
++    assert torch.autograd.gradcheck(forward, (x, physical), atol=1e-6, rtol=1e-4)
++
++
++@pytest.mark.parametrize("recompute", [False, True])
++def test_packed_forward_preserves_router_and_auxiliary_gradient(paired_products, monkeypatch, recompute):
++    patch, fake, hits = paired_products
++    torch.manual_seed(47)
++    ids = torch.tensor([[3, 0], [2, 1], [3, 2]])
++
++    class Gate(nn.Module):
++        def __init__(self):
++            super().__init__()
++            self.projection = nn.Linear(4, 4, bias=False, dtype=torch.float64)
++
++        def forward(self, hidden):
++            scores = self.projection(hidden).softmax(-1)
++            weights = scores.gather(1, ids)
++            return scores, weights / weights.sum(-1, keepdim=True), ids
++
++    class Experts(nn.Module):
++        def __init__(self):
++            super().__init__()
++            self.num_experts = 4
++            self.gate_up_proj = nn.Parameter(torch.randn(4, 6, 4, dtype=torch.float64) * 0.1)
++            self.down_proj = nn.Parameter(torch.randn(4, 4, 3, dtype=torch.float64) * 0.1)
++
++    gate, experts = Gate(), Experts()
++    block = SimpleNamespace(gate=gate, experts=experts)
++    x = torch.randn(1, 3, 4, dtype=torch.float64, requires_grad=True)
++    parameters = (x, *gate.parameters(), *experts.parameters())
++    monkeypatch.setattr(torch, "topk", lambda *args, **kwargs: pytest.fail("given IDs were reselected"))
++
++    def forward(value):
++        _, output, router = patch._qwen3_sparse_moe_routed_forward_npu(block, value, use_packed=True)
++        return output, router
++
++    results = []
++    for enabled in (False, True):
++        monkeypatch.setattr(qwen3_moe, "_use_packed_qwen3", lambda *args, enabled=enabled: enabled)
++        output, router = checkpoint(forward, x, use_reentrant=False) if recompute else forward(x)
++        observations = {name: value.detach().clone() for name, value in fake.observed.items()}
++        gradients = torch.autograd.grad(output.square().sum() + router.square().sum() * 0.01, parameters)
++        results.append((output, router, observations, gradients))
++    base, candidate = results
++    for i in (0, 1):
++        torch.testing.assert_close(candidate[i], base[i], rtol=1e-10, atol=1e-12)
++    for name in ("ids", "weights", "counts", "map"):
++        torch.testing.assert_close(candidate[2][name], base[2][name], rtol=0, atol=0)
++    for a, b in zip(candidate[3], base[3], strict=True):
++        torch.testing.assert_close(a, b, rtol=1e-10, atol=1e-12)
++    assert hits
+diff --git a/tests/utils/test_npu_moe_backward_on_npu.py b/tests/utils/test_npu_moe_backward_on_npu.py
+new file mode 100644
+index 00000000..da03a959
+--- /dev/null
++++ b/tests/utils/test_npu_moe_backward_on_npu.py
+@@ -0,0 +1,142 @@
++# Copyright 2026 verl contributors
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++"""Real 910B products, routing and checkpoint backward at the supported shapes."""
++
++import pytest
++import torch
++from torch.utils.checkpoint import checkpoint
++
++
++@pytest.fixture(scope="module")
++def runtime():
++    pytest.importorskip("torch_npu")
++    from verl.utils.kernel.npu.qwen3_moe import _supported_runtime
++
++    torch.npu.set_device(0)
++    if not _supported_runtime(0):
++        pytest.skip("Requires the measured 910B/CANN/torch_npu/TritonAscend runtime")
++
++
++@pytest.fixture(scope="module")
++def block(runtime):
++    from transformers.models.qwen3_moe.configuration_qwen3_moe import Qwen3MoeConfig
++    from transformers.models.qwen3_moe.modeling_qwen3_moe import Qwen3MoeSparseMoeBlock
++
++    torch.manual_seed(47)
++    config = Qwen3MoeConfig(hidden_size=2048, moe_intermediate_size=768, num_experts=128, num_experts_per_tok=8)
++    module = Qwen3MoeSparseMoeBlock(config)
++    with torch.no_grad():
++        for parameter in module.parameters():
++            parameter.normal_(0, 0.02)
++    module = module.to(device="npu", dtype=torch.bfloat16)
++    with torch.no_grad():
++        module.gate.weight.zero_()
++        module.gate.weight[:, :128].copy_(torch.eye(128, device="npu", dtype=torch.bfloat16))
++    return module
++
++
++@pytest.mark.parametrize("tokens", [128, 129, 512, 2048, 8192])
++@pytest.mark.parametrize("distribution", ["uniform", "hot", "multihot", "longtail"])
++def test_packed_block_exact_forward_and_backward(block, tokens, distribution, monkeypatch):
++    import torch_npu
++
++    from verl.models.transformers.npu_patch import _qwen3_sparse_moe_routed_forward_npu
++    from verl.utils.kernel.npu import qwen3_moe_triton
++    from verl.utils.kernel.npu.qwen3_moe import _use_packed_qwen3
++
++    generator = torch.Generator().manual_seed(47)
++    scores = torch.rand(tokens, 128, generator=generator)
++    if distribution == "hot":
++        scores[:, :8] += 2
++    elif distribution == "multihot":
++        rows = torch.arange(tokens)[:, None]
++        scores[rows, 8 * (rows % 4) + torch.arange(8)] += 2
++    elif distribution == "longtail":
++        scores *= (torch.arange(128) + 1).float().pow(-0.7)
++    hidden = torch.randn(tokens, 2048, generator=generator) * 0.02
++    hidden[:, :128] = scores
++    hidden = hidden.to(device="npu", dtype=torch.bfloat16).requires_grad_()
++    with torch.no_grad():
++        _, _, ids = block.gate(hidden)
++    assert _use_packed_qwen3(hidden, ids, block.experts)
++
++    calls = []
++    original_dx = qwen3_moe_triton.branch_group_dx
++
++    def dx(*args):
++        calls.append(True)
++        return original_dx(*args)
++
++    monkeypatch.setattr(qwen3_moe_triton, "branch_group_dx", dx)
++    routing = {}
++    permutation = torch_npu.npu_moe_token_permute
++    unpermutation = torch_npu.npu_moe_token_unpermute
++
++    def permute(value, selected):
++        output, mapping = permutation(value, selected)
++        routing["ids"] = selected.detach().clone()
++        routing["mapping"] = mapping.detach().clone()
++        routing["counts"] = torch.histc(selected.long(), bins=128, min=0, max=128)
++        return output, mapping
++
++    def unpermute(value, mapping, *, probs):
++        routing["weights"] = probs.detach().clone()
++        return unpermutation(value, mapping, probs=probs)
++
++    monkeypatch.setattr(torch_npu, "npu_moe_token_permute", permute)
++    monkeypatch.setattr(torch_npu, "npu_moe_token_unpermute", unpermute)
++    parameters = (hidden, *block.parameters())
++    results = []
++    for packed in (False, True):
++
++        def forward(value, packed=packed):
++            _, output, router = _qwen3_sparse_moe_routed_forward_npu(block, value, use_packed=packed)
++            return output, router
++
++        # Both ordinary backward and checkpoint recomputation occur in the main model.
++        output, router = checkpoint(forward, hidden, use_reentrant=False) if tokens in (128, 129) else forward(hidden)
++        gradients = torch.autograd.grad(
++            output.float().square().mean() + router.float().square().mean() * 0.01, parameters
++        )
++        results.append((output.detach(), router.detach(), dict(routing), gradients))
++    base, candidate = results
++    assert torch.count_nonzero(base[0]) > 0
++    assert torch.count_nonzero(base[3][0]) > 0
++    for index in (0, 1):
++        torch.testing.assert_close(candidate[index], base[index], rtol=0, atol=0)
++    for name in ("ids", "mapping", "counts", "weights"):
++        torch.testing.assert_close(candidate[2][name], base[2][name], rtol=0, atol=0)
++    for actual, expected in zip(candidate[3], base[3], strict=True):
++        torch.testing.assert_close(actual, expected, rtol=0, atol=0)
++    assert calls
++
++
++def test_branch_groups_against_fp64(runtime):
++    from verl.utils.kernel.npu.qwen3_moe_triton import branch_group_dx
++
++    torch.manual_seed(47)
++    counts = torch.tensor([3, 0, 5, 1])
++    grad = (torch.randn(9, 128) * 0.02).bfloat16()
++    physical = (torch.randn(4, 128, 64) * 0.02).bfloat16()
++    reference = []
++    for g, w in zip(grad.split(counts.tolist()), physical, strict=True):
++        gate, up = g.chunk(2, dim=-1)
++        a, b = w.chunk(2, dim=0)
++        reference.append((gate.double() @ a.double()).bfloat16() + (up.double() @ b.double()).bfloat16())
++    actual = branch_group_dx(grad.npu(), physical.npu().transpose(1, 2), counts.npu())
++    actual, expected = actual.cpu(), torch.cat(reference)
++    torch.testing.assert_close(actual, expected, rtol=2e-2, atol=2e-2)
++    reference_norm = expected.double().norm()
++    assert reference_norm > 0
++    assert (actual.double() - expected.double()).norm() / reference_norm <= 2e-2
+diff --git a/tests/utils/test_npu_moe_routing_on_cpu.py b/tests/utils/test_npu_moe_routing_on_cpu.py
+new file mode 100644
+index 00000000..449a1b84
+--- /dev/null
++++ b/tests/utils/test_npu_moe_routing_on_cpu.py
+@@ -0,0 +1,211 @@
++# Copyright 2025 Bytedance Ltd. and/or its affiliates
++#
++# Copyright 2025 The Qwen Team and The HuggingFace Inc. team
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++# Additional routing contract tests: Copyright 2026 verl contributors
++
++"""Routing contracts. CPU intrinsics below check wiring, not CANN correctness."""
++
++import importlib.util
++import logging
++from pathlib import Path
++from types import ModuleType, SimpleNamespace
++
++import pytest
++import torch
++from torch import nn
++from torch.nn import functional as F
++from torch.utils.checkpoint import checkpoint
++
++
++@pytest.fixture
++def npu_patch(monkeypatch):
++    import sys
++
++    fake = ModuleType("torch_npu")
++    fake.observed = {}
++
++    def permute(x, ids):
++        fake.observed["ids"] = ids.detach().clone()
++        order = ids.reshape(-1).argsort(stable=True)
++        fake.observed["map"] = order
++        return x[order // ids.shape[1]], order
++
++    def unpermute(x, order, probs):
++        fake.observed["weights"] = probs
++        restored = torch.zeros_like(x).index_copy(0, order, x)
++        return (restored.reshape(*probs.shape, x.shape[-1]) * probs[..., None]).sum(1)
++
++    def gmm(xs, ws, *, group_list, group_type, group_list_type, **kwargs):
++        assert group_list_type == 1
++        fake.observed["counts"] = group_list
++        counts = group_list.long().tolist()
++        if group_type == 0:
++            return [torch.cat([part @ w for part, w in zip(xs[0].split(counts), ws[0], strict=True)])]
++        assert group_type == 2
++        return [torch.stack([x @ y for x, y in zip(xs[0].split(counts, dim=1), ws[0].split(counts), strict=True)])]
++
++    fake.npu_moe_token_permute = permute
++    fake.npu_moe_token_unpermute = unpermute
++    fake.npu_grouped_matmul = gmm
++    fake.npu_swiglu = lambda x, dim=-1: F.silu(x.chunk(2, dim)[0]) * x.chunk(2, dim)[1]
++    monkeypatch.setitem(sys.modules, "torch_npu", fake)
++    activations = ModuleType("transformers.activations")
++    activations.ACT2FN = {"silu": F.silu}
++    utils = ModuleType("transformers.utils")
++    utils.logging = SimpleNamespace(get_logger=logging.getLogger)
++    monkeypatch.setitem(sys.modules, "transformers.activations", activations)
++    monkeypatch.setitem(sys.modules, "transformers.utils", utils)
++    # CPU histc has no Long kernel. Preserve its binning semantics in the wiring model.
++    real_histc = torch.histc
++    monkeypatch.setattr(torch, "histc", lambda x, **kw: real_histc(x.double(), **kw).long())
++    path = Path(__file__).parents[2] / "verl/models/transformers/npu_patch.py"
++    spec = importlib.util.spec_from_file_location("routing_contract_patch", path)
++    module = importlib.util.module_from_spec(spec)
++    spec.loader.exec_module(module)
++    return module, fake
++
++
++class Expert(nn.Module):
++    def __init__(self, hidden, intermediate):
++        super().__init__()
++        self.up_proj = nn.Linear(hidden, intermediate, bias=False)
++        self.gate_proj = nn.Linear(hidden, intermediate, bias=False)
++        self.down_proj = nn.Linear(intermediate, hidden, bias=False)
++
++    def forward(self, x):
++        return self.down_proj(F.silu(self.gate_proj(x)) * self.up_proj(x))
++
++
++class Block(nn.Module):
++    def __init__(self, experts=8, k=2, norm=True):
++        super().__init__()
++        self.num_experts, self.top_k, self.norm_topk_prob = experts, k, norm
++        self.gate = nn.Linear(4, experts, bias=False)
++        self.experts = nn.ModuleList([Expert(4, 6) for _ in range(experts)])
++
++
++def reference(block, x):
++    flat = x.reshape(-1, x.shape[-1])
++    logits = block.gate(flat)
++    weights, ids = logits.float().softmax(-1).topk(block.top_k, -1)
++    if block.norm_topk_prob:
++        weights = weights / weights.sum(-1, keepdim=True)
++    weights = weights.to(x.dtype)
++    outputs = torch.stack([expert(flat) for expert in block.experts], 1)
++    selected = outputs.gather(1, ids[..., None].expand(-1, -1, x.shape[-1]))
++    return (selected * weights[..., None]).sum(1).reshape_as(x), logits, weights, ids
++
++
++@pytest.mark.parametrize("tokens,k,norm", [(0, 1, True), (8, 1, False), (8, 2, True), (8, 8, False)])
++@pytest.mark.parametrize("training,recompute", [(False, False), (True, False), (True, True)])
++@pytest.mark.parametrize("dtype", [torch.float64, torch.float32, torch.float16, torch.bfloat16])
++def test_routed_block_outputs_ids_counts_and_gradients(npu_patch, tokens, k, norm, training, recompute, dtype):
++    patch, fake = npu_patch
++    torch.manual_seed(19)
++    block = Block(k=k, norm=norm).to(dtype).train(training)
++    x = torch.randn(1, tokens, 4, dtype=dtype, requires_grad=True)
++    rtol, atol = {
++        torch.float64: (1e-10, 1e-12),
++        torch.float32: (1e-5, 1e-6),
++        torch.float16: (5e-3, 5e-3),
++        torch.bfloat16: (2e-2, 2e-2),
++    }[dtype]
++    expected, logits, weights, ids = reference(block, x)
++
++    def forward(value):
++        return patch.qwen3_moe_sparse_moe_block_forward_npu(block, value)
++
++    actual, actual_logits = checkpoint(forward, x, use_reentrant=False) if recompute else forward(x)
++    assert torch.equal(fake.observed["ids"], ids.int())
++    assert torch.equal(fake.observed["weights"], weights)
++    assert torch.equal(fake.observed["counts"], torch.bincount(ids.flatten(), minlength=8))
++    assert torch.equal(ids.flatten()[fake.observed["map"]], ids.flatten().sort().values)
++    torch.testing.assert_close(actual_logits, logits, rtol=0, atol=0)
++    torch.testing.assert_close(actual, expected, rtol=rtol, atol=atol)
++    # Include an auxiliary router term so gate connectivity cannot be hidden by output checks.
++    parameters = (x, *block.parameters())
++    ref_grads = torch.autograd.grad(expected.square().sum() + logits.square().sum() * 0.01, parameters)
++    out_grads = torch.autograd.grad(actual.square().sum() + actual_logits.square().sum() * 0.01, parameters)
++    for out, ref in zip(out_grads, ref_grads, strict=True):
++        torch.testing.assert_close(out, ref, rtol=rtol, atol=atol)
++
++
++def test_tuple_gate_consumes_given_ids_without_topk(npu_patch, monkeypatch):
++    patch, fake = npu_patch
++    block = Block().double()
++    x = torch.randn(1, 3, 4, dtype=torch.double, requires_grad=True)
++    probabilities = torch.rand(3, 8, requires_grad=True)
++    weights = torch.rand(3, 2, requires_grad=True)
++    ids = torch.tensor([[7, 0], [2, 1], [6, 5]])
++
++    class Gate(nn.Module):
++        def forward(self, x):
++            return probabilities, weights, ids
++
++    block.gate = Gate()
++    monkeypatch.setattr(torch, "topk", lambda *a, **k: pytest.fail("tuple gate was reselected"))
++    flat, out, returned = patch._qwen3_sparse_moe_routed_forward_npu(block, x)
++    assert returned is probabilities
++    assert torch.equal(fake.observed["ids"], ids.int())
++    assert torch.equal(fake.observed["weights"], weights.double())
++    torch.autograd.grad(out.sum() + returned.sum(), (x, weights, probabilities))
++    assert patch.qwen3_moe_sparse_moe_block_forward_npu(block, x).shape == x.shape
++
++
++def test_fixed_selection_gradcheck():
++    ids = torch.tensor([[0, 2], [1, 3]])
++    logits = torch.randn(2, 4, dtype=torch.double, requires_grad=True)
++
++    def selected(value):
++        probs = value.softmax(-1).gather(-1, ids)
++        return probs / probs.sum(-1, keepdim=True)
++
++    assert torch.autograd.gradcheck(selected, (logits,), atol=1e-6, rtol=1e-4)
++
++
++def test_noncontiguous_hidden_preserves_existing_view_restriction(npu_patch):
++    patch, _ = npu_patch
++    block = Block()
++    hidden = torch.randn(2, 3, 4).transpose(0, 1)
++    with pytest.raises(RuntimeError, match="view size is not compatible"):
++        patch.qwen3_moe_sparse_moe_block_forward_npu(block, hidden)
++
++
++def test_logit_topk_is_not_a_routing_contract():
++    # Distinct negative logits all underflow to identical FP32 probabilities.
++    logits = torch.tensor([[0.0, -1000.0, -1001.0, -1002.0, -1003.0, -1004.0]])
++    assert not torch.equal(logits.softmax(-1).topk(3).indices, logits.topk(3).indices)
++
++
++@pytest.mark.parametrize("kind", ["ties", "ulp", "extreme", "softcap"])
++def test_boundary_selection_matches_original(npu_patch, kind):
++    patch, fake = npu_patch
++    block = Block(k=2)
++    with torch.no_grad():
++        block.gate.weight.zero_()
++        values = torch.zeros(8)
++        if kind == "ulp":
++            values = torch.arange(8).float() * torch.finfo(torch.float32).eps
++        elif kind == "extreme":
++            values = torch.tensor([0, -1000, -1001, -1002, -1003, -1004, -1005, -1006]).float()
++        elif kind == "softcap":
++            values = torch.tanh(torch.arange(8).float() + 20) * 30
++        block.gate.weight[:, 0] = values
++    x = torch.tensor([[[1.0, 0, 0, 0]]])
++    _, _, weights, ids = reference(block, x)
++    patch.qwen3_moe_sparse_moe_block_forward_npu(block, x)
++    assert torch.equal(fake.observed["ids"], ids.int())
++    assert torch.equal(fake.observed["weights"], weights)
+diff --git a/tests/utils/test_npu_moe_routing_on_npu.py b/tests/utils/test_npu_moe_routing_on_npu.py
+new file mode 100644
+index 00000000..1bcbaf70
+--- /dev/null
++++ b/tests/utils/test_npu_moe_routing_on_npu.py
+@@ -0,0 +1,88 @@
++# Copyright 2025 Bytedance Ltd. and/or its affiliates
++#
++# Copyright 2025 The Qwen Team and The HuggingFace Inc. team
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++# Additional routing contract tests: Copyright 2026 verl contributors
++
++"""Real CANN permutation, GMM and autograd checks, never CPU-emulated."""
++
++import importlib.util
++from pathlib import Path
++
++import pytest
++import torch
++
++
++@pytest.fixture
++def runtime():
++    torch_npu = pytest.importorskip("torch_npu")
++    torch.npu.set_device(0)
++    path = Path(__file__).parents[2] / "verl/models/transformers/npu_patch.py"
++    spec = importlib.util.spec_from_file_location("npu_routing_under_test", path)
++    module = importlib.util.module_from_spec(spec)
++    spec.loader.exec_module(module)
++    return module, torch_npu
++
++
++@pytest.mark.parametrize("tokens,k", [(1, 1), (8, 2), (32, 8)])
++@pytest.mark.parametrize("dtype", [torch.float16, torch.bfloat16])
++def test_cann_grouping_round_trip(runtime, tokens, k, dtype):
++    _, npu = runtime
++    torch.manual_seed(20261031)
++    ids = torch.rand(tokens, 8).topk(k, dim=-1).indices.to("npu")
++    x = torch.randn(tokens, 32, dtype=dtype, device="npu", requires_grad=True)
++    weights = torch.rand(tokens, k, device="npu", dtype=dtype, requires_grad=True)
++    permuted, mapping = npu.npu_moe_token_permute(x, ids.int())
++    out = npu.npu_moe_token_unpermute(permuted, mapping, probs=weights)
++    expected = x * weights.sum(-1, keepdim=True)
++    tol = 5e-3 if dtype == torch.float16 else 2e-2
++    torch.testing.assert_close(out, expected, rtol=tol, atol=tol)
++    actual_grad = torch.autograd.grad(out.sum(), (x, weights))
++    ref_grad = torch.autograd.grad(expected.sum(), (x, weights))
++    for actual, ref in zip(actual_grad, ref_grad, strict=True):
++        torch.testing.assert_close(actual, ref, rtol=tol, atol=tol)
++
++
++@pytest.mark.parametrize("norm", [True, False])
++def test_real_qwen_block_forward_backward(runtime, norm):
++    from transformers.models.qwen3_moe.configuration_qwen3_moe import Qwen3MoeConfig
++    from transformers.models.qwen3_moe.modeling_qwen3_moe import Qwen3MoeSparseMoeBlock
++
++    patch, _ = runtime
++    torch.manual_seed(20261031)
++    config = Qwen3MoeConfig(
++        hidden_size=64, moe_intermediate_size=64, num_experts=8, num_experts_per_tok=2, norm_topk_prob=norm
++    )
++    block = Qwen3MoeSparseMoeBlock(config)
++    with torch.no_grad():
++        for parameter in block.parameters():
++            parameter.normal_(0, 0.02)
++    block = block.to(device="npu", dtype=torch.bfloat16)
++    x = torch.randn(1, 32, 64, device="npu", dtype=torch.bfloat16, requires_grad=True)
++    expected = block(x)
++    actual = patch.qwen3_moe_sparse_moe_block_forward_npu(block, x)
++    expected_out = expected[0] if isinstance(expected, tuple) else expected
++    actual_out = actual[0] if isinstance(actual, tuple) else actual
++    assert torch.count_nonzero(expected_out) > 0
++    torch.testing.assert_close(actual_out, expected_out, rtol=2e-2, atol=2e-2)
++    params = (x, *block.parameters())
++    ref_grads = torch.autograd.grad(expected_out.float().square().sum(), params, allow_unused=True)
++    out_grads = torch.autograd.grad(actual_out.float().square().sum(), params, allow_unused=True)
++    assert torch.count_nonzero(ref_grads[0]) > 0
++    for out, ref in zip(out_grads, ref_grads, strict=True):
++        if ref is None or out is None:
++            assert ref is out
++        else:
++            torch.testing.assert_close(out, ref, rtol=2e-2, atol=2e-2)
+diff --git a/verl/models/transformers/npu_patch.py b/verl/models/transformers/npu_patch.py
+index 7001e313..d149a509 100644
+--- a/verl/models/transformers/npu_patch.py
++++ b/verl/models/transformers/npu_patch.py
+@@ -140,7 +140,7 @@ def _qwen3_sparse_moe_uses_legacy_block_api(self) -> bool:
+     )
+ 
+ 
+-def _qwen3_sparse_moe_routed_forward_npu(self, hidden_states: torch.Tensor):
++def _qwen3_sparse_moe_routed_forward_npu(self, hidden_states: torch.Tensor, use_packed=False):
+     """
+     Shared NPU routed-expert path for Qwen3Moe/Qwen3Next sparse MoE blocks.
+ 
+@@ -167,7 +167,14 @@ def _qwen3_sparse_moe_routed_forward_npu(self, hidden_states: torch.Tensor):
+     # Loop over all available experts in the model and perform the computation on each expert
+     # Concat all weights
+     input_dtype = hidden_states.dtype
+-    if hasattr(self.experts, "gate_up_proj") and hasattr(self.experts, "down_proj"):
++    if use_packed:
++        from verl.utils.kernel.npu.qwen3_moe import _PackedQwen3GMM, _use_packed_qwen3
++
++        use_packed = _use_packed_qwen3(hidden_states, selected_experts, self.experts)
++    if use_packed:
++        gate_up_weight = self.experts.gate_up_proj.transpose(1, 2)
++        w3 = self.experts.down_proj.transpose(1, 2)
++    elif hasattr(self.experts, "gate_up_proj") and hasattr(self.experts, "down_proj"):
+         gate_proj_weight, up_proj_weight = self.experts.gate_up_proj.chunk(2, dim=1)
+         w1 = up_proj_weight.transpose(1, 2).to(input_dtype)
+         w2 = gate_proj_weight.transpose(1, 2).to(input_dtype)
+@@ -188,10 +195,15 @@ def _qwen3_sparse_moe_routed_forward_npu(self, hidden_states: torch.Tensor):
+         num_experts = self.gate.weight.shape[0]
+     tokens_per_expert = torch.histc(selected_experts, bins=num_experts, min=0, max=num_experts)
+ 
+-    up_res = NPUGmmFunction.apply(permuted_tokens, w1, tokens_per_expert)
+-    gate_res = NPUGmmFunction.apply(permuted_tokens, w2, tokens_per_expert)
+-    act_res = torch_npu.npu_swiglu(torch.cat([gate_res, up_res], dim=-1))
+-    down_res = NPUGmmFunction.apply(act_res, w3, tokens_per_expert)
++    if use_packed:
++        gate_up_res = _PackedQwen3GMM.apply(permuted_tokens, gate_up_weight, tokens_per_expert, True)
++        act_res = torch_npu.npu_swiglu(gate_up_res)
++        down_res = _PackedQwen3GMM.apply(act_res, w3, tokens_per_expert, False)
++    else:
++        up_res = NPUGmmFunction.apply(permuted_tokens, w1, tokens_per_expert)
++        gate_res = NPUGmmFunction.apply(permuted_tokens, w2, tokens_per_expert)
++        act_res = torch_npu.npu_swiglu(torch.cat([gate_res, up_res], dim=-1))
++        down_res = NPUGmmFunction.apply(act_res, w3, tokens_per_expert)
+ 
+     routed_hidden_states = torch_npu.npu_moe_token_unpermute(down_res, row_ids_map, probs=routing_weights)
+ 
+@@ -203,7 +215,7 @@ def qwen3_moe_sparse_moe_block_forward_npu(
+ ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+     """NPU optimized implementation for `forward` in Qwen3MoeSparseMoeBlock."""
+     output_shape = hidden_states.shape
+-    _, routed_hidden_states, router_logits = _qwen3_sparse_moe_routed_forward_npu(self, hidden_states)
++    _, routed_hidden_states, router_logits = _qwen3_sparse_moe_routed_forward_npu(self, hidden_states, use_packed=True)
+     final_hidden_states = routed_hidden_states.reshape(output_shape)
+     if _qwen3_sparse_moe_uses_legacy_block_api(self):
+         return final_hidden_states, router_logits
+diff --git a/verl/utils/kernel/npu/qwen3_moe.py b/verl/utils/kernel/npu/qwen3_moe.py
+new file mode 100644
+index 00000000..f2cadfd4
+--- /dev/null
++++ b/verl/utils/kernel/npu/qwen3_moe.py
+@@ -0,0 +1,103 @@
++# Copyright 2026 verl contributors
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++"""Packed Qwen3 expert products with separate BF16 gate/up gradient roundings."""
++
++from functools import cache
++from importlib.metadata import PackageNotFoundError, version
++
++import torch
++
++
++@cache
++def _supported_runtime(device_index):
++    import torch_npu
++
++    try:
++        versions = (
++            version("torch").split("+")[0],
++            version("torch-npu").split("+")[0],
++            version("triton-ascend"),
++            version("transformers"),
++        )
++    except PackageNotFoundError:
++        return False
++    return (
++        versions == ("2.9.0", "2.9.0.post1", "3.2.0.dev20260322", "5.5.3")
++        and torch_npu.utils.get_cann_version() == "8.5.1"
++        and "910B" in torch.npu.get_device_name(device_index)
++    )
++
++
++def _use_packed_qwen3(hidden, ids, experts):
++    """Select the measured BF16 HF layout using static metadata only."""
++    gate_up = getattr(experts, "gate_up_proj", None)
++    down = getattr(experts, "down_proj", None)
++    return (
++        hidden.device.type == "npu"
++        and hidden.dtype == torch.bfloat16
++        and hidden.shape[0] in (128, 129, 512, 2048, 8192)
++        and hidden.shape[1] == 2048
++        and hidden.is_contiguous()
++        and ids.shape == (hidden.shape[0], 8)
++        and isinstance(gate_up, torch.Tensor)
++        and isinstance(down, torch.Tensor)
++        and gate_up.shape == (128, 1536, 2048)
++        and down.shape == (128, 2048, 768)
++        and gate_up.dtype == hidden.dtype
++        and down.dtype == hidden.dtype
++        and gate_up.is_contiguous()
++        and down.is_contiguous()
++        and _supported_runtime(hidden.device.index)
++    )
++
++
++def _grouped_mm(left, right, counts, *, weight_gradient=False):
++    import torch_npu
++
++    return torch_npu.npu_grouped_matmul(
++        [left],
++        [right],
++        bias=None,
++        group_list=counts,
++        split_item=3 if weight_gradient else 2,
++        group_type=2 if weight_gradient else 0,
++        group_list_type=1,
++    )[0]
++
++
++class _PackedQwen3GMM(torch.autograd.Function):
++    @staticmethod
++    def forward(ctx, x, weight, counts, paired):
++        ctx.save_for_backward(x, weight, counts)
++        ctx.paired = paired
++        return _grouped_mm(x, weight, counts)
++
++    @staticmethod
++    def backward(ctx, grad):
++        x, weight, counts = ctx.saved_tensors
++        if ctx.paired:
++            if grad.is_contiguous():
++                from .qwen3_moe_triton import branch_group_dx
++
++                dx = branch_group_dx(grad, weight, counts)
++            else:
++                gate_grad, up_grad = grad.chunk(2, dim=-1)
++                gate_weight, up_weight = weight.chunk(2, dim=-1)
++                dx = _grouped_mm(gate_grad, gate_weight.transpose(1, 2), counts)
++                dx = dx + _grouped_mm(up_grad, up_weight.transpose(1, 2), counts)
++        else:
++            dx = _grouped_mm(grad, weight.transpose(1, 2), counts)
++        # Produce the HF parameter's physical [E, output, input] layout directly.
++        dw = _grouped_mm(grad.transpose(0, 1), x, counts, weight_gradient=True)
++        return dx, dw.transpose(1, 2), None, None
+diff --git a/verl/utils/kernel/npu/qwen3_moe_triton.py b/verl/utils/kernel/npu/qwen3_moe_triton.py
+new file mode 100644
+index 00000000..7ae9f161
+--- /dev/null
++++ b/verl/utils/kernel/npu/qwen3_moe_triton.py
+@@ -0,0 +1,143 @@
++# Copyright 2026 verl contributors
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++"""Lift gate/up branches into separate GMM groups, retaining BF16 roundings."""
++
++import torch
++import triton
++import triton.language as tl
++
++
++@triton.jit
++def _pack(
++    grad,
++    counts,
++    packed,
++    groups,
++    E: tl.constexpr,
++    INTERMEDIATE: tl.constexpr,
++    BLOCK_E: tl.constexpr,
++    BLOCK_I: tl.constexpr,
++    ROWS: tl.constexpr,
++):
++    expert, part = tl.program_id(0), tl.program_id(1)
++    experts = tl.arange(0, BLOCK_E)
++    values = tl.load(counts + experts, experts < E, 0).to(tl.int32)
++    start = tl.sum(tl.where(experts < expert, values, 0), 0)
++    count = tl.load(counts + expert).to(tl.int32)
++    if part == 0:
++        tl.store(groups + 2 * expert, count)
++        tl.store(groups + 2 * expert + 1, count)
++    columns = tl.arange(0, BLOCK_I)
++    for offset in range(part * ROWS, count, 8 * ROWS):
++        rows = offset + tl.arange(0, ROWS)
++        mask = (rows[:, None] < count) & (columns[None, :] < INTERMEDIATE)
++        gate = tl.load(
++            grad + (start + rows[:, None]) * 2 * INTERMEDIATE + columns[None, :],
++            mask,
++            0,
++        )
++        up = tl.load(
++            grad + (start + rows[:, None]) * 2 * INTERMEDIATE + INTERMEDIATE + columns[None, :],
++            mask,
++            0,
++        )
++        tl.store(
++            packed + (2 * start + rows[:, None]) * INTERMEDIATE + columns[None, :],
++            gate,
++            mask,
++        )
++        tl.store(
++            packed + (2 * start + count + rows[:, None]) * INTERMEDIATE + columns[None, :],
++            up,
++            mask,
++        )
++
++
++@triton.jit
++def _combine(
++    branches,
++    counts,
++    output,
++    E: tl.constexpr,
++    H: tl.constexpr,
++    BLOCK_E: tl.constexpr,
++    BLOCK_H: tl.constexpr,
++    ROWS: tl.constexpr,
++):
++    expert, part = tl.program_id(0), tl.program_id(1)
++    experts = tl.arange(0, BLOCK_E)
++    values = tl.load(counts + experts, experts < E, 0).to(tl.int32)
++    start = tl.sum(tl.where(experts < expert, values, 0), 0)
++    count = tl.load(counts + expert).to(tl.int32)
++    columns = tl.arange(0, BLOCK_H)
++    for offset in range(part * ROWS, count, 8 * ROWS):
++        rows = offset + tl.arange(0, ROWS)
++        mask = (rows[:, None] < count) & (columns[None, :] < H)
++        gate = tl.load(branches + (2 * start + rows[:, None]) * H + columns[None, :], mask, 0)
++        up = tl.load(
++            branches + (2 * start + count + rows[:, None]) * H + columns[None, :],
++            mask,
++            0,
++        )
++        result = (gate.to(tl.float32) + up.to(tl.float32)).to(tl.bfloat16)
++        tl.store(output + (start + rows[:, None]) * H + columns[None, :], result, mask)
++
++
++def branch_group_dx(grad, weight, counts):
++    """Compute paired input gradients with two independent BF16 products."""
++    import torch_npu
++
++    e, h, two_i = weight.shape
++    if weight.stride() != (h * two_i, 1, h) or not grad.is_contiguous():
++        raise ValueError("Branch grouping requires the physical HF weight layout and contiguous gradient")
++    if grad.dtype != torch.bfloat16 or weight.dtype != grad.dtype or counts.dtype != torch.int64:
++        raise ValueError("Expected BF16 operands and direct int64 counts")
++    i = two_i // 2
++    packed = torch.empty((2 * grad.shape[0], i), dtype=grad.dtype, device=grad.device)
++    groups = torch.empty((2 * e,), dtype=counts.dtype, device=counts.device)
++    output = torch.empty((grad.shape[0], h), dtype=grad.dtype, device=grad.device)
++    if not grad.shape[0]:
++        return output
++    _pack[(e, 8)](
++        grad,
++        counts,
++        packed,
++        groups,
++        e,
++        i,
++        triton.next_power_of_2(e),
++        triton.next_power_of_2(i),
++        4,
++    )
++    branch_weight = weight.transpose(1, 2).view(2 * e, i, h)
++    branches = torch_npu.npu_grouped_matmul(
++        [packed],
++        [branch_weight],
++        bias=None,
++        group_list=groups,
++        split_item=2,
++        group_type=0,
++        group_list_type=1,
++    )[0]
++    _combine[(e, 8)](
++        branches,
++        counts,
++        output,
++        e,
++        h,
++        triton.next_power_of_2(e),
++        triton.next_power_of_2(h),
++        4,
++    )
++    return output

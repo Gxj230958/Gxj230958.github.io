@@ -1,0 +1,44 @@
+{
+  "model": "Mixtral-8x7B-v0.1 expert block",
+  "E": 8,
+  "k": 2,
+  "H": 4096,
+  "I": 14336,
+  "rule": "Let R = E*H*I / ((T*k)*(H+I)). For R >= 1 predict C. Below 1 predict B if a single expert receives more than half the assignments, otherwise predict within 1 percent and use B as the simple default.",
+  "interpretation": "Weight dimensions relative to assignment-scaled staging dimensions. This proxy does not measure HBM bytes. Concentration is an offline routing observation.",
+  "origin": "Qwen3 core and E=8 boundary B/C samples only. The unit crossover is a hypothesis.",
+  "class": "C if median time falls by more than 1 percent, B if it rises by more than 1 percent, otherwise within 1 percent. Report paired confidence intervals as well.",
+  "cases": [
+    {
+      "T": 128,
+      "routing": "uniform",
+      "predicted": "C"
+    },
+    {
+      "T": 128,
+      "routing": "hot",
+      "predicted": "C"
+    },
+    {
+      "T": 8192,
+      "routing": "uniform",
+      "predicted": "C"
+    },
+    {
+      "T": 8192,
+      "routing": "hot",
+      "predicted": "C"
+    },
+    {
+      "T": 128,
+      "routing": "text",
+      "predicted": "C"
+    },
+    {
+      "T": 8192,
+      "routing": "text",
+      "predicted": "C"
+    }
+  ],
+  "policy_metric": "Equal weight per declared case. Sum the chosen median times divided by the sum of per-case faster medians; also report worst absolute excess ms. Compare constant B, constant C and production dispatch where directly measured."
+}
