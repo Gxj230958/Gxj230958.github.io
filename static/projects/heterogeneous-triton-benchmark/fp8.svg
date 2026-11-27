@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="620px" height="454px" viewBox="0 0 620 454" role="img" aria-labelledby="title desc">
+  <title id="title">Grouped quantization with two output types</title>
+  <desc id="desc">For each group of 128 gated FP32 values, compute a scale from the largest magnitude. Return both scaled and rounded E4M3 codes and the FP32 scale. One E4M3 step above 1.000 is 1.125.</desc>
+  <rect width="620" height="454" fill="#fcfaf5"/>
+  <g font-family="Arial, Helvetica, sans-serif" fill="#302c27">
+    <g id="activation">
+      <text x="30" y="44" font-size="27" font-weight="700">Gated activation</text>
+      <text x="30" y="76" font-size="23">z = SiLU(gate) × up</text>
+      <g transform="translate(343 32)" fill="#c8b79a">
+        <rect width="16" height="32"/><rect x="20" width="16" height="32"/><rect x="40" width="16" height="32"/><rect x="60" width="16" height="32"/><rect x="80" width="16" height="32"/><rect x="100" width="16" height="32"/><rect x="120" width="16" height="32"/>
+        <path d="M148 16h27" stroke="#82745e" stroke-width="3" stroke-dasharray="3 5"/>
+        <rect x="185" width="16" height="32"/><rect x="205" width="16" height="32"/><rect x="225" width="16" height="32"/>
+        <path d="M0 37v6h241v-6" stroke="#82745e" fill="none" stroke-width="2"/>
+      </g>
+      <text x="464" y="101" text-anchor="middle" font-size="20">128 FP32 values</text>
+    </g>
+    <path d="M161 85v27m-6-6 6 8 6-8" stroke="#695e4e" stroke-width="2.6" fill="none"/>
+    <rect x="30" y="122" width="560" height="69" rx="6" fill="#f1ede4" stroke="#b5a996" stroke-width="1.8"/>
+    <g id="reduction" text-anchor="middle">
+      <text x="310" y="149" font-size="21" font-weight="700">One scale per group</text>
+      <text x="310" y="177" font-size="22">s = max(peak |z|, ε) / 448</text>
+    </g>
+    <g id="output-branches" stroke="#695e4e" stroke-width="2.6" stroke-linejoin="round" fill="none">
+      <path d="M310 192v19H176v22m134-22h154v22"/>
+      <circle cx="310" cy="211" r="3" fill="#695e4e"/>
+      <path d="m170 228 6 8 6-8m276 0 6 8 6-8"/>
+    </g>
+    <g id="quantized-values">
+      <rect x="30" y="240" width="289" height="99" rx="6" fill="#f6e0cb" stroke="#a44927" stroke-width="2.3"/>
+      <text x="48" y="274" font-size="25" font-weight="700">E4M3 values</text>
+      <text x="48" y="302" font-size="20">Clamp z/s to ±448,</text>
+      <text x="48" y="326" font-size="20">then round to FP8.</text>
+    </g>
+    <g id="scale-output">
+      <rect x="339" y="240" width="251" height="99" rx="6" fill="#f3e8cf" stroke="#ac925c" stroke-width="2"/>
+      <text x="358" y="274" font-size="25" font-weight="700">FP32 scale</text>
+      <text x="358" y="302" font-size="20">Store s alongside</text>
+      <text x="358" y="326" font-size="20">the 128 codes.</text>
+    </g>
+    <path d="M30 362h560" stroke="#c9beae" stroke-width="1.6"/>
+    <g id="e4m3-neighbors">
+      <text x="30" y="399" font-size="22" font-weight="700">One E4M3 step</text>
+      <text x="30" y="427" font-size="19">at a value of 1.0</text>
+      <path d="M325 415h206" stroke="#a44927" stroke-width="3"/>
+      <circle cx="325" cy="415" r="6" fill="#a44927"/><circle cx="531" cy="415" r="6" fill="#a44927"/>
+      <text x="325" y="395" text-anchor="middle" font-size="23">1.000</text>
+      <text x="531" y="395" text-anchor="middle" font-size="23">1.125</text>
+    </g>
+  </g>
+</svg>
