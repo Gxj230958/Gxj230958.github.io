@@ -8,8 +8,9 @@
 {{ end }}
 {{ .Content }}
 <p class="entry-links detail-links">
-  {{ with .Params.code }}<a class="btn" href="{{ . }}">Code</a>{{ end }}
+  {{ with .Params.code }}<a class="btn" href="{{ . }}">{{ $.Params.codeLabel | default "Code" }}</a>{{ end }}
   {{ with .Params.report }}<a class="btn" href="{{ . }}">Report</a>{{ end }}
+      {{ with .Params.artifact }}<a class="btn" href="{{ . }}">Study code &amp; data</a>{{ end }}
   {{ with .Params.pr }}<a class="btn" href="{{ . }}">PR</a>{{ end }}
 </p>
 <p><a href="{{ "/" | relURL }}">&larr; Back to home</a></p>

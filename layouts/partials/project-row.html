@@ -10,8 +10,9 @@
     <h3><a class="entry-title" href="{{ $target }}">{{ .Title }}</a></h3>
     <p class="entry-sum">{{ .Params.summary | default .Params.tagline }}</p>
     <div class="entry-links">
-      {{ with .Params.code }}<a class="btn" href="{{ . }}">Code</a>{{ end }}
+      {{ with .Params.code }}<a class="btn" href="{{ . }}">{{ $.Params.codeLabel | default "Code" }}</a>{{ end }}
       {{ with .Params.report }}<a class="btn" href="{{ . }}">Report</a>{{ end }}
+      {{ with .Params.artifact }}<a class="btn" href="{{ . }}">Study code &amp; data</a>{{ end }}
       {{ with .Params.pr }}<a class="btn" href="{{ . }}">PR</a>{{ end }}
       {{ if not .Params.report }}<a class="btn" href="{{ $target }}">Details</a>{{ end }}
     </div>

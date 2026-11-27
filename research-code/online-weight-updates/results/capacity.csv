@@ -1,0 +1,5 @@
+receiver,largest_observed_pass_blocks,first_observed_oom_blocks,largest_observed_pass_tokens
+per-parameter,6523,6524,834944
+vocabulary K=1,6643,6644,850304
+all eligible K=1,6663,6664,852864
+bounded K=2,6436,6524,823808

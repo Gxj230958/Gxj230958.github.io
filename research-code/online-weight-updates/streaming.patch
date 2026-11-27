@@ -1,0 +1,89 @@
+diff --git a/tests/ut/distributed/weight_transfer/test_bounded_tensor.py b/tests/ut/distributed/weight_transfer/test_bounded_tensor.py
+index e43b4c9..d78278e 100644
+--- a/tests/ut/distributed/weight_transfer/test_bounded_tensor.py
++++ b/tests/ut/distributed/weight_transfer/test_bounded_tensor.py
+@@ -344,3 +344,34 @@ def test_short_source_reports_missing_parameter_and_drains_streams(count):
+         bounded.bounded_broadcast_producer(iter(items[:count]), metadata(items), wire, 0, 64, 2)
+     assert len(wire.payloads) == count * 2
+     assert all(not stream.native_queue and not stream.torch_queue for stream in runtime.streams)
++
++
++@pytest.mark.parametrize("slots", [1, 2])
++@pytest.mark.parametrize("start_row, end_row", [(0, 4), (4, 7)])
++def test_direct_row_slab_preserves_padding_and_falls_back(slots, start_row, end_row):
++    # Seven rows over two four-row destinations leaves a padding row on rank 1.
++    weights = torch.arange(35, dtype=torch.int16).reshape(7, 5)
++    bias = torch.arange(3, dtype=torch.int16)
++    items = [("embedding", weights), ("bias", bias)]
++    capacity = 13  # A bucket can cut through a row and through an int16.
++    payloads = produce(items, capacity, slots)
++    runtime = QueuedRuntime()
++    receiving = Wire(runtime, payloads)
++    target = torch.full((4, 5), -1, dtype=torch.int16)
++    rows = end_row - start_row
++    view = target[:rows].reshape(-1).view(torch.uint8)
++    targets = {"embedding": (start_row * 5 * weights.element_size(), view)}
++    fallback = []
++
++    npu, empty, copy, record = runtime.install()
++    with npu, empty, copy, record:
++        bounded.bounded_broadcast_consumer(
++            metadata(items), receiving, 0, fallback.extend, capacity, slots, direct_targets=targets
++        )
++
++    assert not receiving.payloads
++    assert receiving.collective_bytes == [chunk.numel() for chunk in payloads]
++    assert torch.equal(target[:rows], weights[start_row:end_row])
++    assert (target[rows:] == -1).all()
++    assert_bytes(fallback, [("bias", bias)])
++    assert runtime.peak_bytes <= slots * capacity + bias.nbytes
+diff --git a/vllm_ascend/distributed/weight_transfer/bounded_tensor.py b/vllm_ascend/distributed/weight_transfer/bounded_tensor.py
+index 2843a26..5773c88 100644
+--- a/vllm_ascend/distributed/weight_transfer/bounded_tensor.py
++++ b/vllm_ascend/distributed/weight_transfer/bounded_tensor.py
+@@ -159,11 +159,13 @@ def bounded_broadcast_consumer(
+     *,
+     streams: tuple[Any, ...] | None = None,
+     copy_stream: Any = None,
++    direct_targets: dict[str, tuple[int, torch.Tensor]] | None = None,
+ ) -> None:
+     """Reassemble owning parameters within a fixed transport storage budget.
+ 
+-    Transport-held tensor storage is at most K * B + Lmax: K receive slots of
+-    B bytes and owning inputs totalling at most Lmax bytes. When an entire
++    Transport-held tensor storage is at most K * B + F: K receive slots of
++    B bytes and owning inputs totalling at most F bytes, where F is the
++    largest input not streamed directly into its persistent destination. When an entire
+     update is smaller than B, slots shrink to its payload size and unused
+     slot capacity can hold additional complete loader inputs. At most one
+     parameter is incomplete; completed small parameters share loader calls.
+@@ -178,7 +180,11 @@ def bounded_broadcast_consumer(
+     if num_buffers <= 0:
+         raise ValueError("num_buffers must be positive")
+     metadata_items = tuple(metadata)
+-    largest = max((math.prod(shape) * dtype.itemsize for _, (shape, dtype) in metadata_items), default=0)
++    direct_targets = direct_targets or {}
++    largest = max(
++        (math.prod(shape) * dtype.itemsize for name, (shape, dtype) in metadata_items if name not in direct_targets),
++        default=0,
++    )
+     capacity = min(buffer_size_bytes, sum(math.prod(shape) * dtype.itemsize for _, (shape, dtype) in metadata_items))
+     weight_budget = largest + num_buffers * (buffer_size_bytes - capacity)
+     chunks = plan_transfer(iter(metadata_items), buffer_size_bytes)
+@@ -226,6 +232,16 @@ def bounded_broadcast_consumer(
+                 receive(following, (index + 1) % num_buffers)
+             with torch.npu.stream(copy_stream):
+                 for fragment in chunk.fragments:
++                    if fragment.name in direct_targets:
++                        origin, destination = direct_targets[fragment.name]
++                        begin = max(fragment.parameter_offset, origin)
++                        end = min(fragment.parameter_offset + fragment.nbytes, origin + destination.numel())
++                        if begin < end:
++                            source = fragment.buffer_offset + begin - fragment.parameter_offset
++                            destination[begin - origin : end - origin].copy_(
++                                buffers[slot][source : source + end - begin]
++                            )
++                        continue
+                     if fragment.parameter_offset == 0:
+                         size = math.prod(fragment.shape) * fragment.dtype.itemsize
+                         if pending_bytes + size > weight_budget:

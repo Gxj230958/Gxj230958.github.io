@@ -1,0 +1,13 @@
+method,sessions,cycles,median_session_p50_ms,median_session_p95_ms,median_session_replay_tokens_s
+bounded,3,150,957.656,986.599,24.704
+bounded-k1-layerwise,3,150,1156.757,1191.367,21.747
+bounded-k2-layerwise,3,150,1046.826,1069.18,23.463
+bounded1,3,150,1021.954,1046.943,24.085
+cached-packed,3,150,1400.375,1451.551,18.557
+cached-packed-k2-layerwise,3,150,1816.479,1861.816,14.99
+stream,3,150,896.805,908.879,26.379
+stream-all,3,150,870.569,876.931,26.932
+stream-threshold,3,150,879.344,888.641,26.851
+stream1,3,150,1020.317,1034.243,23.79
+unpacked,3,150,957.332,977.134,25.085
+unpacked-k1-layerwise,3,150,1054.165,1079.301,23.064
