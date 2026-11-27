@@ -23,3 +23,5 @@ The harness times the full forward and backward pass, checks the input gradient 
 [Block samples](results/) contain the two elapsed times and the execution order for each pair. [Summary tables](analysis/) include the ratio-of-medians reductions, within-case bootstrap intervals, trace task sums, policy comparisons and eight-device actor observations. The original six-case transfer predictions and the separately specified two-case length test are in the two prediction JSON files.
 
 Run `python paper_figures.py` with Matplotlib and NumPy to regenerate all four figures and the cover from these files, without an NPU.
+
+The [project overview](https://gxj230958.github.io/research/moe-branch-rounding/) includes the [kernel source](qwen3_moe_triton.py). Run `python project_figures.py` to draw its mechanism diagram, matched comparison and device timeline from the archived measurements.

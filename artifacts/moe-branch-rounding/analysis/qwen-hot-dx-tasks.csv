@@ -1,0 +1,11 @@
+arm,task,device_task_name,relative_start_us,duration_us
+B,Slice,aclnnGroupedMatmulV5_SliceAiCore_Slice,0.000,4.460
+B,Slice,aclnnGroupedMatmulV5_SliceAiCore_Slice,4.480,711.789
+B,GMM,aclnnGroupedMatmulV5_GroupedMatmul_GroupedMatmul,717.289,33.821
+B,Slice,aclnnGroupedMatmulV5_SliceAiCore_Slice,752.010,5.120
+B,Slice,aclnnGroupedMatmulV5_SliceAiCore_Slice,757.150,629.146
+B,GMM,aclnnGroupedMatmulV5_GroupedMatmul_GroupedMatmul,1387.196,32.261
+B,Add,aclnnAdd_AddAiCore_Add,1420.737,15.241
+C,Pack,_pack,0.000,80.584
+C,GMM,aclnnGroupedMatmulV5_GroupedMatmul_GroupedMatmul,81.544,59.582
+C,Combine,_combine,141.946,81.723
