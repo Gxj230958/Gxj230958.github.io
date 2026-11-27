@@ -1,0 +1,4 @@
+tensor,policy,nbytes
+model.embed_tokens.weight,stream,1089994752
+lm_head.weight,stream,1089994752
+model.layers.0.mlp.down_proj.weight,largest_fallback,135790592

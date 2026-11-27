@@ -1,0 +1,13 @@
+{{ define "main" }}
+<article class="kv-study">
+  <h1>{{ .Title }}</h1>
+  <div class="kv-study-body">{{ .Content }}</div>
+  <p class="entry-links detail-links" aria-label="Project resources">
+    <a class="btn" href="{{ .Params.code }}">Study code</a>
+    <a class="btn" href="{{ .Params.report }}">English report</a>
+    <a class="btn" href="{{ .Params.pr }}">Upstream PR</a>
+    <a class="btn" href="{{ .Params.artifact }}">Code &amp; data</a>
+  </p>
+</article>
+<p><a href="{{ "/" | relURL }}">&larr; Back to home</a></p>
+{{ end }}

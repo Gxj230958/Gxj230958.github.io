@@ -1,0 +1,7 @@
+mode,session,kv_blocks,slots,bucket_mib,cycles,cycle_peak_bytes
+bounded,1,6144,2,128,50,1358431744
+bounded,2,6144,2,128,50,1358431744
+bounded,3,6144,2,128,50,1358431744
+stream,1,6144,2,128,50,404227584
+stream,2,6144,2,128,50,404227584
+stream,3,6144,2,128,50,404227584

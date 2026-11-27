@@ -72,3 +72,15 @@ td, th { padding: 5px; border-bottom: 1px solid #ddd; }
 .research-paper p:has(> img) + p { font-size: .94em; }
 .research-paper h2 { margin-top: 1.5em; }
 .research-paper table { display: block; overflow-x: auto; }
+
+.kv-study h1 { margin-top: 0; }
+.kv-study-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 15px; }
+.kv-study-body > * { grid-column: 1 / -1; min-width: 0; }
+.kv-study-body h2 { margin: 17px 0 10px; }
+.kv-study-body figure { margin: 3px 0 10px; }
+.kv-study-body figure img { display: block; width: 100%; height: auto; }
+.kv-study-body .kv-panel { grid-column: auto; }
+@media (max-width: 600px) {
+  .kv-study-body { grid-template-columns: minmax(0, 1fr); }
+  .kv-study-body .kv-panel { max-width: 400px; width: 100%; justify-self: center; }
+}

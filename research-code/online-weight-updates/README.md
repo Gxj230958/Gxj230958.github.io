@@ -42,3 +42,9 @@ ASCEND_RT_VISIBLE_DEVICES=0,1 python experiment.py \
 - `results/capacity.csv` gives observed successes and failures for four 7B TP1 policies. One block holds 128 tokens. The bounded two-slot row gives a bracket; the other three rows have adjacent observed endpoints on their original device pairs.
 - `results/holdouts.csv` compares predicted and observed peaks and block counts for two unseen layouts. The TP2 maximum pass exceeds the minimum OOM because outcomes overlapped across sessions.
 - `results/fixed-capacity.csv` gives the median of three independent session statistics for each strategy at 786,432 KV tokens. Each session contains 50 measured updates after warm-up. Replay throughput includes updates and generation.
+
+## Reproducing the website figures
+
+From this directory, run `python plot_project.py --output figures` with Matplotlib installed. Each figure is exported as SVG and PDF. The receiver illustration draws the wire fragments to scale from the vocabulary tensor size and slot capacity. It highlights the same source bytes along both receiver paths.
+
+`results/receiver-layout.csv` gives the two streamed tensor sizes and the largest remaining input from the 7B BF16 checkpoint inventory. `results/matched-peaks.csv` gives the largest whole-cycle receiver allocation increment across 50 measured cycles in each session, measured from the pre-update baseline. Both two-slot policies used the same physical NPU pair, direct reload, 128 MiB slots and 6,144 KV blocks. The figure reports the median of three independent session maxima per policy. Capacity endpoints in the adjacent panel come from the separate observations in `results/capacity.csv`.
