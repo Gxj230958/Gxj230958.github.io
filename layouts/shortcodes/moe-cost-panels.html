@@ -1,0 +1,8 @@
+{{ $src := "/papers/moe-branch-rounding/figures/device-costs.svg" }}
+<figure class="moe-costs">
+  <div class="panels">
+    <div class="panel"><img src="{{ $src }}" loading="lazy" alt="Narrow experts. A fixed routing hotspot raises pack and combine time from 0.53 to 1.27 ms. Separate-branch slicing takes about 0.26 ms in both cases."></div>
+    <div class="panel"><img src="{{ $src }}" loading="lazy" alt="Pretrained Mixtral on text. At 32,768 input rows grouping saves 1.43 ms of staging but adds 10.62 ms in native matrix products."></div>
+  </div>
+  <figcaption>{{ .Inner | markdownify }}</figcaption>
+</figure>

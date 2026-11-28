@@ -1,65 +1,11 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ .Title }} | {{ site.Title }}</title>
-  <meta name="description" content="{{ .Params.summary }}">
-  <meta property="og:title" content="{{ .Title }}">
-  <meta property="og:description" content="{{ .Params.summary }}">
-  <meta property="og:image" content="{{ .Params.cover | absURL }}">
-  <meta property="og:type" content="article">
-  <link rel="canonical" href="{{ .Permalink }}">
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/projects/moe-training-ascend/report.css">
-  <link rel="stylesheet" href="/projects/layout-aware-moe-training/report.css">
-</head>
-<body>
-  <header class="topbar"><a href="/">XINGJIAN GUO</a><span><a href="/#internship">INTERNSHIP</a> &nbsp; / &nbsp; ML SYSTEMS</span></header>
-  <div class="hero"><div class="hero-text">
-    <div><p class="eyebrow">EXPERT COMPUTATION &nbsp; / &nbsp; ASCEND 910B</p>
-    <h1>Layout-aware<br>MoE Training</h1>
-    <p class="sub">When does grouping expert gradients pay off?</p>
-    <div class="artifact-links"><a href="/papers/moe-branch-rounding/">Read the paper</a><a href="{{ .Params.code }}">Code &amp; measurements</a></div></div>
-    <a class="mechanism" href="{{ .Params.cover }}" aria-label="Open full-size grouped backward diagram"><img src="{{ .Params.cover }}" alt="{{ .Params.coverAlt }}" width="780" height="520"></a>
-  </div></div>
-  <nav aria-label="Study sections"><a href="#overview">Overview</a><a href="#method">Method</a><a href="#profile">Device profile</a><a href="#training">Training</a><a href="#limits">Scope</a><a href="#artifacts">Artifacts</a></nav>
-  <main><section id="overview"><h2>Where does the training gain come from?</h2>
-<p class="lead">A gated expert sends each input through two projections. Their gradients return to the same input, but preparing the two matrix products can take longer than computing them. On Ascend 910B, grouping the products cuts complete Qwen3 expert-block time by <strong>7.95–37.20%</strong> with the forward pass, routing and weight-gradient path held fixed.</p>
-<div class="metrics"><div><strong>67.89<span>%</span></strong><p>Complete layout patch against the split reference<br>Geometric-mean block time reduction · 16 cases</p></div><div><strong>7.95–37.20<span>%</span></strong><p>Input-gradient schedule alone<br>Complete block time reduction · 4 Qwen3 cases</p></div><div><strong>2.05–2.26<span>%</span></strong><p>Input-gradient schedule alone<br>Median actor update time reduction · 3 eight-NPU sessions</p></div></div>
-<p>The integration study measured the benefit of changing the entire expert path in verl. The matched study then kept the packed forward projection and physical weight-gradient layout in both arms and varied only the input-gradient schedule. The two comparisons have different denominators. Each percentage is relative to its own baseline.</p>
-<figure><a href="/projects/layout-aware-moe-training/figures/block-baselines.svg" aria-label="Open full-size figure 1"><img loading="lazy" src="/projects/layout-aware-moe-training/figures/block-baselines.svg" alt="Left, a 4 by 4 matrix of time saved by the complete patch. Right, matched savings at 128 and 8,192 rows under uniform and hot routing."></a><figcaption><b>Figure 1.</b> Complete expert-block forward and backward time on Qwen3. Cells in (a) give percent saved by the full layout patch. Points in (b) isolate grouping of the input gradient (dX). Each case uses 100 balanced timing pairs after 30 warmups per arm. Whiskers in (b) are paired-bootstrap 95% intervals and can be narrower than the marks.<span class="downloads"><a href="/projects/layout-aware-moe-training/figures/block-baselines.pdf">Vector PDF</a><a href="/projects/moe-training-ascend/data/block-cases.csv">Layout cases</a><a href="https://github.com/Gxj230958/Gxj230958.github.io/blob/main/artifacts/moe-branch-rounding/analysis/block.csv">Matched cases</a></span></figcaption></figure>
-</section>
-<section id="method"><h2>Two products share a launch and keep their rounding points.</h2>
-<p>A matrix multiplication writes a BF16 result for each of the gate and up branches. Those two rounded results are added to form the input gradient. Moving the addition inside a single wide dot product can change that gradient. The implementation assigns two internal groups to each expert, so one native grouped matrix multiplication still writes both BF16 results.</p>
-<div class="method-flow"><div><h3>Pack the gradients</h3><p>For an expert receiving <i>n</i> routed rows, store its <i>n</i> gate rows followed by its <i>n</i> up rows. Each group receives a count of <i>n</i>.</p></div><div><h3>View the weights</h3><p>Expose the existing packed weights as <i>2E</i> groups for <i>E</i> experts. One native call computes the two products for each expert.</p></div><div><h3>Combine the pair</h3><p>Read both BF16 products for the same token, widen them for addition, and write the input gradient in BF16.</p></div></div>
-<pre><code>branch_weight = weight.transpose(1, 2).view(2 * e, i, h)
-branches = torch_npu.npu_grouped_matmul(
-    [packed], [branch_weight], bias=None, group_list=groups,
-    split_item=2, group_type=0, group_list_type=1,
-)[0]</code></pre>
-<p><a href="https://github.com/Gxj230958/Gxj230958.github.io/blob/main/artifacts/moe-branch-rounding/qwen3_moe_triton.py">Packing, native call and combine kernels</a> · <a href="https://github.com/Gxj230958/Gxj230958.github.io/blob/main/artifacts/moe-branch-rounding/variants.py">Two-call baseline</a> · <a href="/projects/layout-aware-moe-training/figures/grouped-backward.pdf">Mechanism diagram (PDF)</a></p></section>
-<section id="profile"><h2>Four slicing tasks dominate the short block.</h2>
-<p>In the 128-row Qwen3 hotspot, slicing the two branches consumes <strong>1.351 ms</strong> in the matched baseline. Packing and combining take <strong>0.162 ms</strong> in the grouped arm. The native matrix products themselves take 0.066 ms and 0.060 ms, respectively. Most of the observed saving comes from preparing the operands.</p>
-<figure><a href="/projects/layout-aware-moe-training/figures/device-timeline.svg" aria-label="Open full-size figure 2"><img loading="lazy" src="/projects/layout-aware-moe-training/figures/device-timeline.svg" alt="Device timeline. The two-call dX segment lasts 1.436 ms and the grouped segment lasts 0.224 ms. A magnified lane labels pack, native matmul and combine."></a><figcaption><b>Figure 2.</b> Timestamped Ascend device events during the gate/up input gradient. Each lane starts at its own first task and retains the gaps between tasks. The bottom lane magnifies the grouped segment. A separate unprofiled experiment measured 3.098 ms and 1.946 ms for the entire block.<span class="downloads"><a href="/projects/layout-aware-moe-training/figures/device-timeline.pdf">Vector PDF</a><a href="https://github.com/Gxj230958/Gxj230958.github.io/blob/main/artifacts/moe-branch-rounding/analysis/qwen-hot-dx-tasks.csv">Device events</a></span></figcaption></figure>
-<h3>When grouping loses</h3>
-<p>A pretrained Mixtral layer with its learned top-2 router supplies a test at a different expert width. At 32,768 text rows, packing and combining still take less time than the baseline slices, but native matrix-multiplication time increases by 10.624 ms in the device trace. The complete block runs 1.20% slower. These row counts aggregate tokens from text windows before expert routing.</p>
-<div class="table-wrap"><table><thead><tr><th scope="col">Mixtral text rows</th><th scope="col">Separate dX</th><th scope="col">Grouped dX</th><th scope="col">Block time saved</th></tr></thead><tbody>
-<tr><th scope="row">128</th><td>10.399 ms</td><td>7.427 ms</td><td>28.58%</td></tr><tr><th scope="row">8,192</th><td>70.797 ms</td><td>67.993 ms</td><td>3.96%</td></tr><tr><th scope="row">32,768</th><td>290.847 ms</td><td>294.327 ms</td><td>−1.20%</td></tr></tbody></table></div>
-<p><a href="/papers/moe-branch-rounding/#5-evaluation">Matched evaluation and routing controls</a></p></section>
-<section id="training"><h2>From one expert block to an actor update.</h2>
-<p>The full layout patch reduced median update time from <strong>32.730 s to 31.259 s</strong> on the 48-layer Qwen3 actor across 16 NPUs. A separate profile counted 576 fewer grouped-matmul layout materializations per rank. To isolate dX, the matched experiment replayed a fixed PPO batch on a 24-layer, 15.577B-parameter actor across eight NPUs. Median time fell in each independent session, with exact all-rank agreement in the checked training state.</p>
-<figure><a href="/projects/layout-aware-moe-training/figures/actor-replay.svg" aria-label="Open full-size figure 3"><img loading="lazy" src="/projects/layout-aware-moe-training/figures/actor-replay.svg" alt="Left, 40 paired slowest-rank times before and after the full layout patch. Right, dX-only reductions of 2.26%, 2.07% and 2.05% across three sessions."></a><figcaption><b>Figure 3.</b> (a) Each line connects one fixed-state pair. Black ticks mark the arm medians. The reduction was 4.49% (95% interval 4.08–4.80%). (b) Each session contains 40 balanced pairs. Points are reductions in median slowest-rank latency with paired-bootstrap 95% intervals. In session 2 the p95 increased from 3.151 s to 3.374 s.<span class="downloads"><a href="/projects/layout-aware-moe-training/figures/actor-replay.pdf">Vector PDF</a><a href="/projects/moe-training-ascend/data/actor-pairs.csv">48-layer pairs</a><a href="https://github.com/Gxj230958/Gxj230958.github.io/blob/main/artifacts/moe-branch-rounding/analysis/actor.csv">24-layer estimates</a></span></figcaption></figure>
-<h3>Training quality under native execution</h3>
-<p>The longer training runs evaluated a configuration that also enabled a communication cast/scale hook. Two-layer runs covered five seeds and 1,000 updates. The 48-layer runs covered three seeds and 200 updates. For the full model, the largest one-sided 95% upper bound on the final candidate-minus-reference negative log-likelihood across three splits was 0.001080 nats/token, below the prespecified 0.005 limit. These measurements apply to the combined configuration. <a href="/projects/moe-training-ascend/#quality">Training snapshots and evaluation data</a></p>
-<h3>When a local saving reaches the collective</h3>
-<p>A separate 16-NPU experiment varied when rank 0 reached a collective on a 623-million-element gradient bucket. Fusing rank 0’s cast and divide roughly halved its preparation time in both regimes. The difference in completion-time savings between late and early arrival was <strong>3.787 ms</strong> (95% interval 3.740–3.838 ms).</p>
-<figure><a href="/projects/layout-aware-moe-training/figures/collective-arrival.svg" aria-label="Open full-size figure 4"><img loading="lazy" src="/projects/layout-aware-moe-training/figures/collective-arrival.svg" alt="Paired median preparation and completion time savings with rank 0 arriving first and last. Only late arrival translates the local saving into earlier completion."></a><figcaption><b>Figure 4.</b> A 50 ms release offset controls arrival order. Each point is the median paired saving over 100 complete pairs per regime, with a 95% bootstrap interval. Positive values mean faster completion or preparation. This experiment changes rank 0’s communication preparation.<span class="downloads"><a href="/projects/layout-aware-moe-training/figures/collective-arrival.pdf">Vector PDF</a><a href="/projects/moe-training-ascend/data/arrival-samples.csv">Arrival samples</a></span></figcaption></figure>
-</section>
-<section id="limits"><h2>Scope of the evidence</h2>
-<p>The measured speedups apply to the Ascend 910B stack. Mixtral covers one pretrained expert layer. The distributed timing measures deterministic, fixed-batch PPO actor updates with synthetic advantages. End-to-end rollout throughput and performance on other accelerators remain open. Under the original full-model native runtime, strict comparisons exceeded their tolerances for 91 normalization gradients and two parameter updates. The deterministic replay and the longer-run quality tests answer different numerical questions.</p></section>
-<section id="artifacts"><h2>Reports, code and measurements</h2>
-<p>The integration report covers the full layout change, training snapshots and collective arrival. The matched study and its English paper isolate dX and examine the Qwen3 and Mixtral workloads.</p>
-<div class="artifact-links"><a href="/projects/moe-training-ascend/">Original layout-aware training report</a><a href="/research/moe-branch-rounding/">Original grouped-gradient project</a><a href="/papers/moe-branch-rounding/paper.pdf">English paper (PDF)</a><a href="https://github.com/Gxj230958/Gxj230958.github.io/tree/main/artifacts/moe-branch-rounding">Code &amp; timing data</a><a href="https://github.com/Gxj230958/Gxj230958.github.io/blob/main/artifacts/layout-aware-moe-training/plot.py">Figure source</a></div></section></main>
-  <footer><a href="/#internship">← Back to Internship</a><a href="#overview">Back to overview ↑</a></footer>
-</body></html>
+{{ define "main" }}
+<link rel="stylesheet" href="/projects/layout-aware-moe-training/report.css?v=2">
+<article class="moe-study">
+  <h1>{{ .Title }}</h1>
+  {{ .Content }}
+  <p class="entry-links detail-links" aria-label="Project resources">
+    <a class="btn" href="{{ .Params.code }}">GitHub</a>
+    <a class="btn" href="{{ .Params.report }}">Report</a>
+  </p>
+</article>
+{{ end }}
