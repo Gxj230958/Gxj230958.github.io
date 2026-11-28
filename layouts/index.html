@@ -2,7 +2,7 @@
 <h2 id="about">About Me</h2>
 {{ .Content }}
 <h2 id="research">Independent Research &amp; Open-Source Contributions</h2>
-<p>Independent research projects on Ascend 910B NPUs, spanning kernel engineering, LLM inference and serving, diffusion-model efficiency, distributed training, and memory planning.</p>
+<p>Independent research projects on Ascend 910B NPUs, spanning kernel engineering, LLM inference and serving, distributed training, and memory planning.</p>
 <ul class="entries project-list">
   {{ range (where site.RegularPages "Section" "research").ByWeight }}
   {{ partial "project-row.html" . }}
