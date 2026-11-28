@@ -77,6 +77,20 @@ td, th { padding: 5px; border-bottom: 1px solid #ddd; }
 .kv-study-body { display: grid; grid-template-columns: minmax(0, 1fr); }
 .kv-study-body > * { min-width: 0; }
 .kv-study-body h2 { margin: 17px 0 10px; }
-.kv-study-body figure { margin: 3px 0 10px; }
+.kv-study-body figure { margin: 3px 0 10px; max-width: 610px; width: 100%; justify-self: center; }
 .kv-study-body figure img { display: block; width: 100%; height: auto; }
-.kv-study-body .kv-singleplot { width: min(100%, 450px); justify-self: center; }
+.kv-study-body figcaption { font-size: .94rem; margin: .6rem 0 .9rem; }
+.kv-study-body figcaption p { margin: 0; }
+.kv-study-body table { font-variant-numeric: tabular-nums; color: #253c48; }
+.kv-study-body th { color: #043361; border-top: 1.5px solid #426373; }
+.kv-study-body td, .kv-study-body th { padding: .45em .6em; }
+.kv-study-body tbody tr:last-child td { border-bottom: 1px solid #426373; }
+@media (max-width: 480px) {
+  .kv-study-body table { font: 14px/1.35 Arial, sans-serif; }
+  .kv-study-body td, .kv-study-body th { padding: .4em .15em; }
+  .kv-study-body td:last-child { white-space: nowrap; }
+  .kv-study-body td:last-child strong { display: block; }
+}
+@media (max-width: 350px) {
+  .kv-study-body table { font-size: 13.5px; }
+}

@@ -3,6 +3,7 @@
 import argparse
 import csv
 import json
+from decimal import Decimal
 from pathlib import Path
 
 from profile_summary import elapsed
@@ -47,6 +48,25 @@ def summarize(file):
     }
 
 
+def export_sender_intervals(files, output):
+    """Write only per-round relative HCCL kernel times from the TP2 sender."""
+    with output.open("w", newline="") as stream:
+        writer = csv.writer(stream, lineterminator="\n")
+        writer.writerow(["round", "start_us", "duration_us"])
+        for file in files:
+            with file.open() as source:
+                calls = sorted(
+                    (Decimal(r["Start Time(us)"]), Decimal(r["Duration(us)"]))
+                    for r in csv.DictReader(source)
+                    if r["Accelerator Core"] == "COMMUNICATION"
+                )
+            origin = calls[0][0]
+            run = int(file.parents[2].name.split("-")[1])
+            writer.writerows(
+                (run, start - origin, duration) for start, duration in calls
+            )
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("directory", type=Path)
@@ -64,6 +84,10 @@ def main():
             )
             if len(files) != (2 if side == "sender" else workers * 2):
                 raise ValueError(f"Incomplete {side} export for {mode}")
+            if mode == "rank-columns" and side == "sender":
+                export_sender_intervals(
+                    files, args.output.with_name("sender-hccl-relative.csv")
+                )
             result[mode][side] = [summarize(f) for f in files]
     args.output.write_text(json.dumps(result, indent=2) + "\n")
 

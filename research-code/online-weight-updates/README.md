@@ -45,7 +45,7 @@ ASCEND_RT_VISIBLE_DEVICES=0,1 python experiment.py \
 
 ## Reproducing the website figures
 
-From this directory, run `python plot_project.py --output figures` with Matplotlib installed. Each figure is exported as SVG and PDF. The receiver illustration draws the wire fragments to scale from the vocabulary tensor size and slot capacity. It highlights the same source bytes along both receiver paths.
+From this directory, run `python plot_project.py --output figures` with Matplotlib installed. Each figure is exported as SVG and PDF. The receiver illustration traces one hatched fragment from the trainer into live model storage, with a separate temporary matrix on the reassembly path.
 
 `results/receiver-layout.csv` gives the two streamed tensor sizes and the largest remaining input from the 7B BF16 checkpoint inventory. `results/matched-peaks.csv` gives the largest whole-cycle receiver allocation increment across 50 measured cycles in each session, measured from the pre-update baseline. Both two-slot policies used the same physical NPU pair, direct reload, 128 MiB slots and 6,144 KV blocks. The figure reports the median of three independent session maxima per policy. Capacity endpoints in the adjacent panel come from the separate observations in `results/capacity.csv`.
 
@@ -65,3 +65,12 @@ python analyze_acceleration.py --from-tables results --output figures
 ```
 
 Experiment manifests under `configs/` give the device group, output stem and command-line flags for each session. Map the devices to the equivalent local topology and supply local checkpoint and oracle paths. Five independent sessions per configuration measure alternating Base and Instruct with a complete update every batch or every four batches. Each batch has sixteen 512-token prompts and 128 generated tokens per request. The fixed-policy control runs two batches without an update. `results/acceleration-sessions.csv` records pause, replay rate and peak allocation. `results/rollout-sessions.csv` gives output rate, first-token latency and same-version sequence variation. The separate device intervals and prepacked broadcast references characterize communication and copying.
+
+## Reproducing the project page
+
+```bash
+python plot_project.py --output figures
+python plot_handoff.py --output figures
+```
+
+`receiver.svg` and `parallel-handoff.svg` also have PDF versions. The upper panel of `parallel-handoff` plots the session medians in `results/acceleration-sessions.csv`. The lower panel uses `results/sender-hccl-relative.csv`, which records the start and duration of each HCCL operation relative to the first operation in its profiling round. `trace_acceleration.py` exports these intervals alongside the profile summary. `rollout-table.md` is generated from `results/rollout-sessions.csv` using matching session IDs for each pair.

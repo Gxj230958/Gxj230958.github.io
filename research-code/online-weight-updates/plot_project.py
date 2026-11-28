@@ -59,14 +59,6 @@ def box(ax, x, y, w, h, fill, edge, hatch=None):
     ax.add_patch(Rectangle((x, y), w, h, fc=fill, ec=edge, lw=0.85, hatch=hatch))
 
 
-def arrow(ax, x1, x2, y, color=MUTED):
-    ax.add_patch(
-        FancyArrowPatch(
-            (x1, y), (x2, y), arrowstyle="-|>", mutation_scale=10, lw=1.05, color=color
-        )
-    )
-
-
 def export(fig, out, stem):
     for kind in ("svg", "pdf"):
         path = out / f"{stem}.{kind}"
@@ -106,69 +98,61 @@ def cover(out, end):
 
 
 def receiver(out, slot_mib, tensor_mib):
-    fig, ax = canvas(420, 284)
-    label(ax, 10, 13, "One vocabulary matrix, identical HCCL broadcasts", 17, bold=True)
-    # Draw each on-wire fragment to scale, including the short final fragment.
-    left, width, focus = 11, 233, 2
+    fig, ax = canvas(400, 347)
     fraction = slot_mib / tensor_mib
-    for idx in range(ceil(tensor_mib / slot_mib)):
-        offset = idx * fraction
-        box(
-            ax,
-            left + offset * width,
-            34,
-            min(fraction, 1 - offset) * width,
-            18,
-            BLUE if idx == focus else PALE_BLUE,
-            BLUE,
-        )
-    label(ax, 250, 43, f"≤ {slot_mib:g} MiB / broadcast", 14, BLUE)
-    label(ax, 11, 65, f"{tensor_mib:,.1f} MiB BF16 input embedding", 13, MUTED)
-    ax.plot([10, 410], [80, 80], color=RULE, lw=0.8)
+    focus = 4
 
-    for y, name, assemble in [
-        (98, "Upstream PR", True),
-        (200, "Independent study", False),
-    ]:
-        label(ax, 10, y, name, 17, bold=True)
-        middle = y + 27
-        box(ax, 13, middle - 7, 60, 16, PALE_BLUE, BLUE)
-        box(ax, 15, middle - 5, 56, 12, BLUE, BLUE)
-        label(ax, 43, y + 53, "Receive slot", 13.5, BLUE, "center")
+    def strip(x, y, width, height, fill, edge, divided=False):
+        box(ax, x, y, width, height, fill, edge)
+        if divided:
+            for n in range(1, ceil(tensor_mib / slot_mib)):
+                xx = x + n * fraction * width
+                ax.plot([xx, xx], [y, y + height], color=edge, lw=0.8)
+        start = x + focus * fraction * width
+        box(ax, start, y, fraction * width, height, PALE_BLUE, BLUE, "////")
+        return start + fraction * width / 2
 
-        if assemble:
-            arrow(ax, 76, 142, middle)
-            box(ax, 144, middle - 8, 101, 18, PALE_ORANGE, ORANGE, "//")
-            box(
-                ax,
-                144 + focus * fraction * 101,
-                middle - 8,
-                fraction * 101,
-                18,
-                BLUE,
-                BLUE,
+    def route(points, color, weight):
+        xs, ys = zip(*points[:-1])
+        ax.plot(xs, ys, color=color, lw=weight, solid_capstyle="butt")
+        ax.add_patch(
+            FancyArrowPatch(
+                points[-2],
+                points[-1],
+                arrowstyle="-|>",
+                shrinkA=0,
+                shrinkB=0.5,
+                mutation_scale=11,
+                color=color,
+                lw=weight,
             )
-            arrow(ax, 248, 300, middle)
-            label(ax, 195, y + 53, "Reassemble input", 13.5, ORANGE, "center")
-            label(
-                ax,
-                195,
-                y + 71,
-                f"{tensor_mib:,.1f} MiB temporary",
-                13,
-                ORANGE,
-                "center",
-            )
-        else:
-            arrow(ax, 76, 300, middle, TEAL)
-            label(ax, 188, y + 53, "Load-plan byte range", 13.5, TEAL, "center")
-
-        box(ax, 302, middle - 8, 103, 18, PALE_TEAL, TEAL)
-        box(
-            ax, 302 + focus * fraction * 103, middle - 8, fraction * 103, 18, BLUE, BLUE
         )
-        label(ax, 354, y + 53, "Live weight", 13.5, TEAL, "center")
-    ax.plot([10, 410], [182, 182], color=RULE, lw=0.8)
+
+    label(ax, 8, 18, "Where does a received weight fragment go?", 20, bold=True)
+    label(ax, 12, 53, "Trainer", 16, bold=True)
+    label(ax, 388, 53, f"{tensor_mib:,.1f} MiB vocabulary matrix", 14, MUTED, "right")
+    source = strip(13, 68, 374, 22, "#EDF2F4", MUTED, divided=True)
+    route([(source, 91), (source, 123)], BLUE, 1.6)
+    label(ax, source + 12, 106, "HCCL broadcast", 13.5, BLUE)
+    box(ax, source - 23, 124, 46, 22, PALE_BLUE, BLUE, "////")
+    label(ax, source - 32, 135, "Receive slot", 16, INK, "right", True)
+    label(ax, source + 32, 135, f"≤ {slot_mib:g} MiB", 14, MUTED)
+
+    left, right = 94, 302
+    ax.plot([source, source], [146, 162], color=INK, lw=1.3)
+    route([(source, 162), (left, 162), (left, 178)], MUTED, 1.3)
+    route([(source, 162), (right, 162), (right, 178)], TEAL, 2.0)
+    label(ax, left, 191, "Reassemble, then copy", 15.5, MUTED, "center", True)
+    label(ax, right, 191, "Write to the final offset", 15.5, TEAL, "center", True)
+    temp = strip(16, 207, 157, 21, "#F6EEE4", "#896845")
+    label(ax, left, 243, f"{tensor_mib:,.1f} MiB temporary", 14, "#79532E", "center")
+    label(ax, right, 218, "Load-plan byte range", 14, TEAL, "center")
+    # The copy installs the assembled input. The direct write targets one range.
+    dest = strip(16, 287, 368, 24, PALE_TEAL, TEAL)
+    route([(temp, 254), (temp, 271), (temp, 286)], MUTED, 1.3)
+    route([(right, 230), (right, 264), (dest, 264), (dest, 286)], TEAL, 2.0)
+    label(ax, 16, 329, "Live model weight", 16, bold=True)
+    label(ax, 385, 329, "Existing device storage", 14, MUTED, "right")
     export(fig, out, "receiver")
 
 
