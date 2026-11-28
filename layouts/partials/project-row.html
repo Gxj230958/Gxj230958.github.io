@@ -1,3 +1,4 @@
+{{ if not (in (slice "/internship/moe-training-ascend/" "/research/moe-branch-rounding/") .RelPermalink) }}
 {{ $target := .RelPermalink }}
 {{ with .Params.externalURL }}{{ $target = . }}{{ end }}
 <li class="project-row{{ if not .Params.cover }} text-entry{{ end }}">
@@ -18,3 +19,4 @@
     </div>
   </div>
 </li>
+{{ end }}
