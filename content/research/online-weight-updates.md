@@ -2,8 +2,8 @@
 title: "From Bounded Broadcasts to Rank-Local Policy Updates on Ascend"
 summary: "I built bounded HCCL broadcasts for vLLM-Ascend, then used the model’s load plan to send each rollout rank only its weight shards. On the same three Ascend 910B2C NPUs, Qwen2.5-7B update pauses fell 22.8% and concurrent rollout throughput rose 4.6% with an update every batch."
 weight: -2
-cover: "/covers/online-weight-updates.svg"
-coverAlt: "TP2 update pause on identical hardware: 668 ms with all-eligible broadcast and 516 ms with parallel row and column shards."
+cover: "/covers/online-weight-updates.svg?v=2"
+coverAlt: "Two trainer matrices split by rows and columns. Parallel HCCL links deliver blue shards to rank 0 and amber shards to rank 1, cutting the median Qwen2.5-7B update pause from 668 to 516 ms."
 code: "https://github.com/Gxj230958/Gxj230958.github.io/tree/main/research-code/online-weight-updates"
 codeLabel: "Study code on GitHub"
 pr: "https://github.com/vllm-project/vllm-ascend/pull/21288"
