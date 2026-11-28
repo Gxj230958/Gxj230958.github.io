@@ -1,0 +1,14 @@
+experiment,placement,cycles,median_pause_ms
+ablation-send-direct,"14,15",8,902.82996755559
+ablation-receive-direct,"14,15",8,895.6147005083039
+ablation-both-direct,"14,15",8,870.3367430716753
+cal-tp1-all,"14,15",8,871.3405185844749
+cal-tp1-native,"14,15",8,958.6037744302303
+cal-tp1-threshold,"14,15",8,879.1406629607081
+cal-tp2-all,"8,9,10",8,668.5912080574781
+cal-tp2-native,"8,9,10",8,723.5190978972241
+cal-tp2-threshold,"8,9,10",8,672.8531350381672
+layout-rank-lanes-16,"11,12,13",8,561.514898086898
+layout-rank-lanes-128,"11,12,13",8,568.5923621058464
+layout-rank-columns-16,"11,12,13",8,515.6253861496225
+layout-rank-columns-128,"11,12,13",8,525.8211790351197

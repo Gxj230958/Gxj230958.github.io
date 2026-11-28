@@ -1,0 +1,146 @@
+{
+  "stream-all": {
+    "sender": [
+      {
+        "device": 13,
+        "round": 2,
+        "hccl_calls": 114,
+        "hccl_union_ms": 793.3225,
+        "concurrent_hccl_ms": 0.0,
+        "copy_union_ms": 34.12825,
+        "copy_hccl_overlap_ms": 33.904499999999985
+      },
+      {
+        "device": 13,
+        "round": 3,
+        "hccl_calls": 114,
+        "hccl_union_ms": 791.36075,
+        "concurrent_hccl_ms": 0.0,
+        "copy_union_ms": 33.8915,
+        "copy_hccl_overlap_ms": 33.671249999999986
+      }
+    ],
+    "receiver": [
+      {
+        "device": 12,
+        "round": 2,
+        "hccl_calls": 114,
+        "hccl_union_ms": 791.98625,
+        "concurrent_hccl_ms": 0.0,
+        "copy_union_ms": 30.665,
+        "copy_hccl_overlap_ms": 30.559499999999957
+      },
+      {
+        "device": 12,
+        "round": 3,
+        "hccl_calls": 114,
+        "hccl_union_ms": 792.736,
+        "concurrent_hccl_ms": 0.0,
+        "copy_union_ms": 30.6295,
+        "copy_hccl_overlap_ms": 30.523500000000013
+      }
+    ]
+  },
+  "both-direct": {
+    "sender": [
+      {
+        "device": 13,
+        "round": 2,
+        "hccl_calls": 199,
+        "hccl_union_ms": 799.78625,
+        "concurrent_hccl_ms": 0.0,
+        "copy_union_ms": 3.68975,
+        "copy_hccl_overlap_ms": 3.45799999999997
+      },
+      {
+        "device": 13,
+        "round": 3,
+        "hccl_calls": 199,
+        "hccl_union_ms": 799.67275,
+        "concurrent_hccl_ms": 0.0,
+        "copy_union_ms": 3.58875,
+        "copy_hccl_overlap_ms": 3.3632499999999936
+      }
+    ],
+    "receiver": [
+      {
+        "device": 12,
+        "round": 2,
+        "hccl_calls": 199,
+        "hccl_union_ms": 799.11075,
+        "concurrent_hccl_ms": 0.0,
+        "copy_union_ms": 3.5195,
+        "copy_hccl_overlap_ms": 3.444500000000062
+      },
+      {
+        "device": 12,
+        "round": 3,
+        "hccl_calls": 199,
+        "hccl_union_ms": 799.9385,
+        "concurrent_hccl_ms": 0.0,
+        "copy_union_ms": 3.50725,
+        "copy_hccl_overlap_ms": 3.440499999999929
+      }
+    ]
+  },
+  "rank-columns": {
+    "sender": [
+      {
+        "device": 13,
+        "round": 2,
+        "hccl_calls": 302,
+        "hccl_union_ms": 434.3055,
+        "concurrent_hccl_ms": 412.0165,
+        "copy_union_ms": 0.62425,
+        "copy_hccl_overlap_ms": 0.2605000000000359
+      },
+      {
+        "device": 13,
+        "round": 3,
+        "hccl_calls": 302,
+        "hccl_union_ms": 432.899,
+        "concurrent_hccl_ms": 411.08275,
+        "copy_union_ms": 0.5985,
+        "copy_hccl_overlap_ms": 0.24425000000002228
+      }
+    ],
+    "receiver": [
+      {
+        "device": 11,
+        "round": 2,
+        "hccl_calls": 152,
+        "hccl_union_ms": 453.09875,
+        "concurrent_hccl_ms": 0.0,
+        "copy_union_ms": 0.598,
+        "copy_hccl_overlap_ms": 0.46550000000002
+      },
+      {
+        "device": 12,
+        "round": 2,
+        "hccl_calls": 152,
+        "hccl_union_ms": 451.4535,
+        "concurrent_hccl_ms": 0.0,
+        "copy_union_ms": 0.579,
+        "copy_hccl_overlap_ms": 0.45025000000003956
+      },
+      {
+        "device": 11,
+        "round": 3,
+        "hccl_calls": 152,
+        "hccl_union_ms": 450.19025,
+        "concurrent_hccl_ms": 0.0,
+        "copy_union_ms": 0.5255,
+        "copy_hccl_overlap_ms": 0.40550000000001774
+      },
+      {
+        "device": 12,
+        "round": 3,
+        "hccl_calls": 152,
+        "hccl_union_ms": 450.2265,
+        "concurrent_hccl_ms": 0.0,
+        "copy_union_ms": 0.49025,
+        "copy_hccl_overlap_ms": 0.37024999999999864
+      }
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+[
+  [
+    "8,9,10",
+    "acceleration/wire-tp2-shards",
+    [
+      "--tp",
+      "2",
+      "--mode",
+      "rank-columns",
+      "--direct-min-mib",
+      "16",
+      "--reload",
+      "direct",
+      "--kv-mib",
+      "50200",
+      "--warmups",
+      "2",
+      "--samples",
+      "3",
+      "--wire-reference"
+    ]
+  ]
+]

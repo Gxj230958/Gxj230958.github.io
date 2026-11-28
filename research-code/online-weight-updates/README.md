@@ -48,3 +48,20 @@ ASCEND_RT_VISIBLE_DEVICES=0,1 python experiment.py \
 From this directory, run `python plot_project.py --output figures` with Matplotlib installed. Each figure is exported as SVG and PDF. The receiver illustration draws the wire fragments to scale from the vocabulary tensor size and slot capacity. It highlights the same source bytes along both receiver paths.
 
 `results/receiver-layout.csv` gives the two streamed tensor sizes and the largest remaining input from the 7B BF16 checkpoint inventory. `results/matched-peaks.csv` gives the largest whole-cycle receiver allocation increment across 50 measured cycles in each session, measured from the pre-update baseline. Both two-slot policies used the same physical NPU pair, direct reload, 128 MiB slots and 6,144 KV blocks. The figure reports the median of three independent session maxima per policy. Capacity endpoints in the adjacent panel come from the separate observations in `results/capacity.csv`.
+
+## Concurrent rollout performance
+
+The trainer holds both BF16 checkpoints in device memory. Use one visible rollout NPU for TP1, or two for TP2, followed by one trainer NPU. Create cold references for both versions with the corresponding `--tp` setting before running the version sentinels. At TP2 the all-eligible broadcast baseline is `--mode stream-all`. The row-shard transport is `--mode rank-lanes`. The row-and-column transport is `--mode rank-columns --direct-min-mib 16`. The peers receive into live weights; shared inputs stay on the common broadcast communicator.
+
+```bash
+for version in base instruct; do
+  ASCEND_RT_VISIBLE_DEVICES=0,1 python experiment.py --tp 2 --base "$BASE" --instruct "$INSTRUCT" \
+    --reference "$version" --oracle ./oracle --output "./reference-tp2-$version.json"
+done
+ASCEND_RT_VISIBLE_DEVICES=0,1,2 python experiment.py --tp 2 --base "$BASE" --instruct "$INSTRUCT" \
+  --oracle ./oracle --reload direct --mode rank-columns --direct-min-mib 16 --kv-mib 50200 \
+  --warmups 3 --samples 12 --rollout-cycles 2 --output ./tp2-session.json
+python analyze_acceleration.py --from-tables results --output figures
+```
+
+Experiment manifests under `configs/` give the device group, output stem and command-line flags for each session. Map the devices to the equivalent local topology and supply local checkpoint and oracle paths. Five independent sessions per configuration measure alternating Base and Instruct with a complete update every batch or every four batches. Each batch has sixteen 512-token prompts and 128 generated tokens per request. The fixed-policy control runs two batches without an update. `results/acceleration-sessions.csv` records pause, replay rate and peak allocation. `results/rollout-sessions.csv` gives output rate, first-token latency and same-version sequence variation. The separate device intervals and prepacked broadcast references characterize communication and copying.

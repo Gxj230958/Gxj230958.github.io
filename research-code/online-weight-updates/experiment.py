@@ -9,6 +9,8 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from time import perf_counter
 
+from direct_transport import METHODS
+
 PROMPTS = ([9707, 11, 1268, 525, 498, 30], [785, 4096, 374, 279, 2038, 315])
 
 
@@ -129,7 +131,7 @@ def trainer_init(args, engine, loop):
         world_size=args.tp + 1,
         packed=args.mode != "unpacked",
         packed_transfer_mode="bounded"
-        if args.mode in ("bounded", "stream", "stream-all")
+        if args.mode in ("bounded", "stream", "stream-all", *METHODS)
         else "legacy",
         packed_buffer_size_bytes=args.bucket_mib * 2**20,
         packed_num_buffers=args.slots,
@@ -275,6 +277,12 @@ async def study(args, record):
                     args.wrong_row,
                 ),
             )
+        if args.mode in METHODS:
+            from direct_transport import install_trainer
+
+            install_trainer(
+                trainer, engine, loop, args.mode, args.direct_min_mib * 2**20
+            )
         if args.layers:
             from probes import start_materialization
 
@@ -292,13 +300,30 @@ async def study(args, record):
                 await engine.collective_rpc(
                     start_trace, args=(str(args.profile / f"round-{i}"),)
                 )
+            if args.dual_trace and args.profile and i >= args.warmups:
+                await loop.run_in_executor(
+                    pool,
+                    start_trace,
+                    trainer,
+                    str(args.profile / "sender" / f"round-{i}"),
+                )
+            import torch
+
+            torch.npu.reset_peak_memory_stats(trainer.device)
+            sender_before = torch.npu.memory_allocated(trainer.device)
             start = perf_counter()
             await engine.pause_generation(mode="wait", clear_cache=True)
+            drained = perf_counter()
             await loop.run_in_executor(pool, trainer.send_weights)
+            transferred = perf_counter()
             await engine.resume_generation()
             resumed = perf_counter()
+            sender_peak = torch.npu.max_memory_allocated(trainer.device) - sender_before
             if args.profile and i >= args.warmups:
                 from probes import stop_trace
+
+                if args.dual_trace:
+                    await loop.run_in_executor(pool, stop_trace, trainer)
 
                 await engine.collective_rpc(stop_trace)
             update_memory = (
@@ -325,6 +350,10 @@ async def study(args, record):
                     "version": version,
                     "warmup": i < args.warmups,
                     "pause_ms": (resumed - start) * 1000,
+                    "sender_peak_bytes": sender_peak,
+                    "drain_ms": (drained - start) * 1000,
+                    "transfer_ms": (transferred - drained) * 1000,
+                    "resume_ms": (resumed - transferred) * 1000,
                     "first_token_ms": (first - start) * 1000,
                     "cycle_ms": (end - start) * 1000,
                     "tokens": sum(len(r["token_ids"]) for r in output),
@@ -348,10 +377,44 @@ async def study(args, record):
                     ],
                 }
             )
+        if args.rollout_cycles:
+            from rollout import run_suite
+
+            await run_suite(
+                engine,
+                pool,
+                trainer,
+                sources,
+                args.rollout_cycles,
+                record,
+                args.output,
+                reference,
+            )
+        if args.wire_reference:
+            from rollout import wire_reference
+
+            record["wire"] = await wire_reference(
+                engine, pool, trainer, sources["base"], args.bucket_mib * 2**20
+            )
+            if args.mode in ("rank-columns", "rank-lanes"):
+                from rollout import shard_wire_reference
+
+                record["sharded_wire"] = await shard_wire_reference(
+                    engine, pool, trainer, sources["base"], args.bucket_mib * 2**20
+                )
         if args.mode in ("stream", "stream-all"):
             from streaming import plan_details
 
             record["plan"] = await engine.collective_rpc(plan_details)
+        if args.mode in METHODS:
+            from direct_transport import receiver_stats
+
+            record["direct_transfer"] = {
+                "routes": trainer.transport_routes,
+                "extra_communicator_bytes": getattr(trainer, "comm_setup_bytes", None),
+                "sender": trainer.transport_stats,
+                "receivers": await engine.collective_rpc(receiver_stats),
+            }
         if args.layers:
             from probes import materializations
 
@@ -359,6 +422,15 @@ async def study(args, record):
         record["status"] = "passed"
     finally:
         if trainer is not None:
+            if args.mode in ("rank-lanes", "rank-columns") and getattr(
+                trainer.model_update_group, "peer_lanes", None
+            ):
+                from direct_transport import close_lanes, close_receiver_lanes
+
+                await asyncio.gather(
+                    engine.collective_rpc(close_receiver_lanes),
+                    loop.run_in_executor(pool, close_lanes, trainer.model_update_group),
+                )
             await loop.run_in_executor(pool, trainer.shutdown)
         pool.shutdown(wait=False)
         engine.shutdown()
@@ -385,6 +457,7 @@ def main():
             "stream",
             "stream-all",
             "auto",
+            *METHODS,
         ],
         default="unpacked",
     )
@@ -416,12 +489,23 @@ def main():
     )
     parser.add_argument("--attribute", action="store_true")
     parser.add_argument("--threshold-mib", type=int, default=0)
+    parser.add_argument("--rollout-cycles", type=int, default=0)
+    parser.add_argument("--dual-trace", action="store_true")
+    parser.add_argument("--wire-reference", action="store_true")
+    parser.add_argument("--direct-min-mib", type=int, default=128)
     parser.add_argument("--samples", type=int, default=50)
     parser.add_argument("--warmups", type=int, default=3)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    if args.mode in ("auto", "stream", "stream-all") and args.reload != "direct":
+    if (
+        args.mode in ("auto", "stream", "stream-all", *METHODS)
+        and args.reload != "direct"
+    ):
         parser.error("Stream-to-destination requires direct reload")
+    if args.mode.startswith("rank-") and args.tp != 2:
+        parser.error("Rank-specific transports require two inference ranks")
+    if args.rollout_cycles and args.rollout_cycles < 2:
+        parser.error("A rollout comparison needs both policy versions")
     if args.mode == "auto" and not args.budget_mib:
         parser.error("auto requires the available update budget in MiB")
     if args.wrong_row and not (args.tp == 2 and args.verify):
